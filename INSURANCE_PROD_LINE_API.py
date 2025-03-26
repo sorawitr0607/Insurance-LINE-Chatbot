@@ -109,6 +109,14 @@ def retrieve_insurance_service_context(query, top_k=2):
     )
     return "\n\n".join(print_results_service(results))
 
+def save_chat_history(user_id, sender, message, timestamp):
+    conversations.insert_one({
+        "user_id": user_id,
+        "sender": sender,
+        "message": message,
+        "timestamp": timestamp
+    })
+
 def summarize_text(text: str, max_chars: int = 2000, user_id = None) -> str:
 
     if len(text) <= max_chars:
@@ -152,14 +160,6 @@ def generate_answer(query, context, chat_history=None):
             max_tokens=700)
             
         return response.choices[0].message.content.strip()
-    
-def save_chat_history(user_id, sender, message, timestamp):
-    conversations.insert_one({
-        "user_id": user_id,
-        "sender": sender,
-        "message": message,
-        "timestamp": timestamp
-    })
 
 def get_chat_history(user_id, limit=10):
     messages = list(conversations.find(
