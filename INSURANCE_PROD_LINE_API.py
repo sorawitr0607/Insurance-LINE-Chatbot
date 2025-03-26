@@ -125,7 +125,7 @@ def summarize_text(text: str, max_chars: int = 2500, user_id = None) -> str:
         max_tokens=400
     )
     summary = response.choices[0].message.content.strip()
-    timestamp = datetime.now(datetime.UTC)
+    timestamp = datetime.now()
     conversations.delete_many({"user_id": user_id})
     save_chat_history(user_id, "user", summary, timestamp)
     return summary
@@ -278,7 +278,7 @@ def handle_message(event):
             )
         )
 
-    timestamp = datetime.now(datetime.UTC)
+    timestamp = datetime.now()
     save_chat_history(user_id, "user", user_query, timestamp)
     save_chat_history(user_id, "assistant", response, timestamp)
 
