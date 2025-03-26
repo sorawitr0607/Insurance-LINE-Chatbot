@@ -207,7 +207,7 @@ def decide_search_path(user_query, chat_history=None):
                 "content": classification_prompt
             },
         ],
-        temperature=0.0,
+        temperature=0.1,
         max_tokens=10
     )
 
