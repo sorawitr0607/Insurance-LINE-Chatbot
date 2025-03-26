@@ -109,7 +109,7 @@ def retrieve_insurance_service_context(query, top_k=2):
     )
     return "\n\n".join(print_results_service(results))
 
-def summarize_text(text: str, max_chars: int = 2500, user_id = None) -> str:
+def summarize_text(text: str, max_chars: int = 2000, user_id = None) -> str:
 
     if len(text) <= max_chars:
         return text
@@ -169,7 +169,7 @@ def get_chat_history(user_id, limit=10):
     ))
     messages.reverse()
     history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages])
-    summary = summarize_text(history_text, max_chars=2500,user_id = user_id)
+    summary = summarize_text(history_text, max_chars=2000,user_id = user_id)
     return summary
 
 def decide_search_path(user_query, chat_history=None):
@@ -185,8 +185,8 @@ def decide_search_path(user_query, chat_history=None):
     Guidelines:
     - If the user explicitly asks or strongly implies wanting to reset the chat, choose "RESET".
     - If the query is about insurance services in particular (e.g., "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า"), choose "INSURANCE_SERVICE".
-    - If the query involves insurance product, or policy but not specifically "Insurance Service," choose "INSURANCE_PRODUCT".
-    - If the query is about detail of conversation that said in conversation history, choose "CONTINUE CONVERSATION".
+    - If the query involves insurance product, or policy  (e.g., "แนะนำประกัน","ขอดูประกัน" etc.) but not specifically "Insurance Service," choose "INSURANCE_PRODUCT".
+    - If the query is ask more detail of previous conversation that said in conversation history, choose "CONTINUE CONVERSATION".
     - Otherwise, choose "OFF-TOPIC".
 
     Return ONLY one of these category labels: RESET, INSURANCE_SERVICE, INSURANCE_PRODUCT, CONTINUE CONVERSATION, or OFF-TOPIC.
