@@ -84,7 +84,7 @@ def retrieve_context(query, top_k=2):
     query_vector = embed_text(query)
     vector_query = VectorizedQuery(
         vector=query_vector, 
-        k_nearest_neighbors=25, 
+        k_nearest_neighbors=50, 
         fields="text_vector")
     results = search_client.search(
         search_text=None,
@@ -98,7 +98,7 @@ def retrieve_insurance_service_context(query, top_k=2):
     query_vector = embed_text(query)
     vector_query = VectorizedQuery(
         vector=query_vector, 
-        k_nearest_neighbors=25, 
+        k_nearest_neighbors=50, 
         fields="text_vector"
     )
     results = service_search_client.search(
@@ -122,12 +122,12 @@ def summarize_text(text: str, max_chars: int = 2500, user_id = None) -> str:
             {"role": "user", "content": text}
         ],
         temperature=0.3,
-        max_tokens=400
+        max_tokens=1000
     )
     summary = response.choices[0].message.content.strip()
     timestamp = datetime.now()
     conversations.delete_many({"user_id": user_id})
-    save_chat_history(user_id, "user", summary, timestamp)
+    save_chat_history(user_id, "assistant", summary, timestamp)
     return summary
 
 def generate_answer(query, context, chat_history=None):
