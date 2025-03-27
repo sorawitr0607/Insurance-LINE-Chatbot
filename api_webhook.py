@@ -1,0 +1,85 @@
+import os
+from dotenv import load_dotenv
+from flask import Flask, request, abort
+from linebot.v3 import WebhookHandler
+from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessageRequest,TextMessage
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.webhooks import MessageEvent,TextMessageContent
+from datetime import datetime
+from utils.chat_history_func import get_chat_history,del_chat_history,save_chat_history
+from utils.rag_func import decide_search_path,retrieve_insurance_service_context,retrieve_context,generate_answer
+
+load_dotenv()
+
+# LINE API
+app = Flask(__name__)
+configuration = Configuration(access_token=os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
+handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
+
+
+@app.route("/webhook", methods=['POST'])
+def webhook():
+    signature = request.headers['X-Line-Signature']
+    body = request.get_data(as_text=True)
+    app.logger.info("Request body: " + body)
+    # handle webhook body
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        app.logger.info("Invalid signature. Please check your channel access token/channel secret.")
+        abort(400)
+
+    return 'OK'
+
+@handler.add(MessageEvent, message=TextMessageContent)
+def handle_message(event):
+    user_query = event.message.text
+    user_id = event.source.user_id
+    chat_history = get_chat_history(user_id)
+    #print(len(chat_history))
+    path_decision = decide_search_path(user_query,chat_history)
+    #print(path_decision)
+    
+    if path_decision == "RESET":
+        del_chat_history(user_id)
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text="แชทของคุณถูกรีเซ็ตเรียบร้อยแล้ว")]
+                )
+            )
+        return
+
+    
+    if path_decision == "INSURANCE_SERVICE":
+        context = retrieve_insurance_service_context(user_query)
+    elif path_decision == "INSURANCE_PRODUCT":
+        context = retrieve_context(user_query)
+    elif path_decision == "CONTINUE CONVERSATION":
+        context = ""
+    elif path_decision == "MORE":
+        context = retrieve_context(user_query,10)
+    else:
+        chat_history = None
+        context = ""
+        
+    response = generate_answer(user_query, context, chat_history)
+
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[TextMessage(text=response)]
+            )
+        )
+
+    timestamp = datetime.now()
+    save_chat_history(user_id, "user", user_query, timestamp)
+    save_chat_history(user_id, "assistant", response, timestamp)
+
+if __name__ == "__main__":
+    #app.run(debug=True)
+    app.run(host="0.0.0.0", port=8000)
