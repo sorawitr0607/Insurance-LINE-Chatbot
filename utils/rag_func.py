@@ -97,7 +97,7 @@ def summarize_text(text, max_chars, user_id):
     if len(text) <= max_chars:
         return text
     
-    system_prompt = "You are a helpful assistant. Summarize the user's conversation but keep core detail (prioritize newer message)"
+    system_prompt = "You are a helpful assistant. Condense the user's conversation by selectively removing less important or redundant information. Prioritize preserving numeric details, specific names, exact wording, key facts, and recent messages. Avoid overly summarizing; keep the original details intact."
     response = client.chat.completions.create(
         model=chat_model,
         messages=[
