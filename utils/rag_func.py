@@ -6,27 +6,9 @@ from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 
-# from guardrails import Guard, OnFailAction, configure
-# from guardrails.hub import BespokeMiniCheck
 
 load_dotenv()
 
-# hub_token = os.getenv("GUARDRAILS_TOKEN")
-
-# configure(
-#     enable_metrics=True,
-#     enable_remote_inferencing=True,
-#     token=hub_token
-# )
-
-# # Instantiate Guard and use BespokeMiniCheck
-# guard = Guard().use(
-#     BespokeMiniCheck(
-#         split_sentences=True,
-#         threshold=0.5,
-#         on_fail=OnFailAction.REASK,   # or OnFailAction.FIX, or OnFailAction.FIX_REASK
-#     )
-# )
 
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
