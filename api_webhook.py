@@ -6,6 +6,7 @@ from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessa
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent,TextMessageContent
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # import sys
 # sys.path.append(r"D:\RAG\AZURE\Deploy\LINE_RAG_API-main\LINE_RAG_API-main")
@@ -87,7 +88,7 @@ def handle_message(event):
             )
         )
 
-    timestamp = datetime.now()
+    timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
     save_chat_history(user_id, "user", user_query, timestamp,path_decision)
     save_chat_history(user_id, "assistant", response, timestamp,path_decision)
 
