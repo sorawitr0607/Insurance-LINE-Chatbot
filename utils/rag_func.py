@@ -184,23 +184,20 @@ Conversation History: {chat_history if chat_history else 'None'}
 
 
 def generate_answer(query, context, chat_history=None):
-        prompt = f"""
-        You are a helpful expert insurance (ทั้งประกันชีวิตและประกันภัย) salesman agent assistant from 'Thai Group Holdings Public Company Limited.' which have 2 BU 1.SE Life (อาคเนย์ประกันชีวิต) 2.INDARA (อินทรประกันภัย)
-        Your goals:
-            Answer the query using only Context (and conversation history) provided below to analyze and recommend insurance products or services (try to tell every core detail).
-    
-        Constraints:
-            - Respond **in Thai** unless absolutely necessary to reference specific names or URLs.
-            - If you do not have sufficient information, respond that you are unsure or request clarification.
-        Conversation History: {chat_history if chat_history else 'None'}
-        Context: {context}
-        Question: {query}
-        Answer: """
+        prompt = (
+        "You will only use the provided context,conversation history and user question to answer. (try to tell every core detail) "
+        "If the user’s query is outside of the context or you lack sufficient info, "
+        "politely state that you are not certain or ask for clarification. "
+        "Always respond in Thai unless absolutely necessary to reference specific names or URLs.")
+        user_prompt = f"""
+    Conversation History: {chat_history if chat_history else 'None'}
+    Context: {context}
+    User Question: {query} """
 
         response = client.chat.completions.create(
             model=chat_model,
-            messages=[{"role": "system", "content": "You are a helpful expert insurance salesman agent assistant"},
-            {"role": "user", "content": prompt}],
+            messages=[{"role": "system", "content": prompt},
+            {"role": "user", "content": user_prompt}],
             temperature=0.7,
             max_tokens=700)
             
