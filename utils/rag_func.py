@@ -110,10 +110,25 @@ def summarize_text(text, max_chars, user_id):
     )
     summary = response.choices[0].message.content.strip()
     timestamp = datetime.now()
-    from utils.chat_history_func import save_chat_history,del_chat_history
+    from utils.chat_history_func import save_chat_history,del_chat_history,get_latest_decide
     del_chat_history(user_id)
     user_latest_decide = get_latest_decide(user_id)
     save_chat_history(user_id, "assistant", summary, timestamp,latest_decide=user_latest_decide)
+    return summary
+
+def summarize_context(text, user_id):
+
+    system_prompt = "Summarize the following chat history in a concise and context-rich manner, capturing the most relevant details and intents. This summary should be suitable for vector-based search and retrieval, retaining the key concepts and any specific instructions, queries, or responses. Do not include excessive details or conversational fillers, just the core information."
+    response = client.chat.completions.create(
+        model=chat_model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text}
+        ],
+        temperature=0.3,
+        max_tokens=150
+    )
+    summary = response.choices[0].message.content.strip()
     return summary
 
 
