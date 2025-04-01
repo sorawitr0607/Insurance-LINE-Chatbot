@@ -65,7 +65,7 @@ def retrieve_context(query, top_k=10 , skip_k=0):
     query_vector = embed_text(query)
     vector_query = VectorizedQuery(
         vector=query_vector, 
-        k_nearest_neighbors=50, 
+        k_nearest_neighbors=100, 
         fields="text_vector")
     results = search_client.search(
         search_text=None,
