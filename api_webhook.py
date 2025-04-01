@@ -63,8 +63,7 @@ def handle_message(event):
     elif path_decision == "CONTINUE CONVERSATION":
         latest_decide = get_latest_decide(user_id)
         chat_user_latest = get_latest_user_history(user_id)
-        context_search = f'user_new_question : {user_query}, user_chat_history : {chat_user_latest}'
-        summary_context_search = summarize_context(context_search)
+        summary_context_search = summarize_context(user_query,chat_user_latest)
         if latest_decide == "INSURANCE_SERVICE":
             context = retrieve_insurance_service_context(summary_context_search)
             path_decision = 'INSURANCE_SERVICE'
