@@ -116,15 +116,8 @@ def summarize_text(text, max_chars, user_id):
 
 def summarize_context(new_question,chat_history):
 
-    system_prompt = f"""
-Summarize the following chat history and the latest user question into a concise, context-rich summary suitable for vector-based search and retrieval. Capture key concepts, specific instructions, queries, and responses. **Preserve all specific names, such as product names** mentioned in the conversation or question.
-
-Chat History:
-{chat_history}
-
-Latest User Question:
-{new_question}
-"""
+    system_prompt = 'Summarize the following chat history and the latest user question into a concise, context-rich summary suitable for vector-based search and retrieval. Capture key concepts, specific instructions, queries, and responses. **Preserve all specific names, such as product names** mentioned in the conversation or question.'
+    text = f'Chat History: {chat_history} Latest User Question: {new_question}'
     response = client.chat.completions.create(
         model=chat_model,
         messages=[
