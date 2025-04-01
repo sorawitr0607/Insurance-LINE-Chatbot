@@ -66,10 +66,10 @@ def handle_message(event):
         context_search = f'user_new_question : {user_query}, user_chat_history : {chat_user_latest}'
         summary_context_search = summarize_context(context_search)
         if latest_decide == "INSURANCE_SERVICE":
-            context = retrieve_insurance_service_context(context_search)
+            context = retrieve_insurance_service_context(summary_context_search)
             path_decision = 'INSURANCE_SERVICE'
         elif latest_decide == "INSURANCE_PRODUCT":
-            context = retrieve_insurance_service_context(context_search)
+            context = retrieve_insurance_service_context(summary_context_search)
             path_decision = 'INSURANCE_PRODUCT'
     elif path_decision == "MORE":
         context = retrieve_context(user_query,10)
