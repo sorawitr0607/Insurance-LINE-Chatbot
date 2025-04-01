@@ -6,8 +6,27 @@ from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 
+# from guardrails import Guard, OnFailAction, configure
+# from guardrails.hub import BespokeMiniCheck
+
 load_dotenv()
 
+# hub_token = os.getenv("GUARDRAILS_TOKEN")
+
+# configure(
+#     enable_metrics=True,
+#     enable_remote_inferencing=True,
+#     token=hub_token
+# )
+
+# # Instantiate Guard and use BespokeMiniCheck
+# guard = Guard().use(
+#     BespokeMiniCheck(
+#         split_sentences=True,
+#         threshold=0.5,
+#         on_fail=OnFailAction.REASK,   # or OnFailAction.FIX, or OnFailAction.FIX_REASK
+#     )
+# )
 
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
@@ -92,7 +111,7 @@ def retrieve_insurance_service_context(query, top_k=3):
     )
     return "\n\n".join(print_results_service(results))
 
-def summarize_text(text, max_chars, user_id):
+def summarize_text(text, max_chars, user_id,latest_decide):
 
     if len(text) <= max_chars:
         return text
@@ -111,7 +130,7 @@ def summarize_text(text, max_chars, user_id):
     timestamp = datetime.now()
     from utils.chat_history_func import save_chat_history,del_chat_history
     del_chat_history(user_id)
-    save_chat_history(user_id, "assistant", summary, timestamp)
+    save_chat_history(user_id, "assistant", summary, timestamp,latest_decide)
     return summary
 
 
@@ -163,7 +182,7 @@ def decide_search_path(user_query, chat_history=None):
     valid_categories = ["RESET","INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"]
     if path_decision not in valid_categories:
         path_decision = "OFF-TOPIC"
-
+    
     return path_decision
 
 
@@ -188,4 +207,15 @@ def generate_answer(query, context, chat_history=None):
             temperature=0.7,
             max_tokens=700)
             
-        return response.choices[0].message.content.strip()
+        raw_response = response.choices[0].message.content.strip()
+        
+        # print(raw_response)
+    
+        # guarded_answer = guard.parse(
+        # text=raw_response,
+        # reference_text=context,
+        # llm_api=client.chat.completions.create)
+        
+        # print(guarded_answer)
+        
+        return raw_response
