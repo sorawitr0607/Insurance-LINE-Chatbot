@@ -133,53 +133,53 @@ def summarize_context(new_question,chat_history):
 
 def decide_search_path(user_query, chat_history=None):
 
+    # Build a short, direct prompt
     classification_prompt = f"""
-    You are a classification model. Classify the following user query (consider together with conversion history provided below) into exactly one of these categories:
-    1) RESET
-    2) INSURANCE_SERVICE
-    3) INSURANCE_PRODUCT
-    4) CONTINUE CONVERSATION
-    5) MORE
-    6) OFF-TOPIC
+You are a highly accurate text classification model. 
+Determine which single label (from the set: RESET, INSURANCE_SERVICE, INSURANCE_PRODUCT, 
+CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits the user's latest query. 
 
-    Guidelines:
-    - If the user explicitly asks or strongly implies wanting to reset the chat, choose "RESET".
-    - If the query is about services in particular (e.g., "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า"), choose "INSURANCE_SERVICE".
-    - If the query involves insurance product (e.g., "แนะนำประกัน","ขอดูประกัน","มีประกัน" หรืออื่่นๆ etc.) but not specifically "Insurance Service," choose "INSURANCE_PRODUCT".
-    - If the query is ask more detail of previous conversation that said in conversation history, choose "CONTINUE CONVERSATION".
-    - If the query is ask more product data of previous conversation likes (e.g., 'show me more product','tell me more product'), choose "MORE".
-    - Otherwise, choose "OFF-TOPIC".
+Guidelines:
+- "RESET" if the user requests or strongly implies resetting the conversation.
+- "INSURANCE_SERVICE" if the query is specifically about insurance services (e.g., "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า").
+- "INSURANCE_PRODUCT" if the query is about insurance products (e.g., "I want to buy insurance", "Show me plans", etc.).
+- "CONTINUE CONVERSATION" if the user is asking a follow-up about a previously discussed topic.
+- "MORE" if the user wants additional product beyond previous discussion (e.g., 'show me more product','tell me more product').
+- Otherwise, "OFF-TOPIC".
 
-    Return ONLY one of these category labels: RESET, INSURANCE_SERVICE, INSURANCE_PRODUCT, CONTINUE CONVERSATION, MORE, or OFF-TOPIC.
+Return ONLY one label. Do not add explanations.
 
-    User Query: {user_query}
-    Conversation History: {chat_history if chat_history else 'None'}
-    """
+User Query: {user_query}
+Conversation History: {chat_history if chat_history else 'None'}
+""".strip()
 
+    # Call the OpenAI Chat Completion endpoint
     response = client.chat.completions.create(
         model=chat_model,
         messages=[
-            {
-                "role": "system",
-                "content": "You are an expert text classification model. Respond with a single category label."
-            },
-            {
-                "role": "user",
-                "content": classification_prompt
-            },
+            {"role": "system", "content": "You are a classification model. Return only one label."},
+            {"role": "user", "content": classification_prompt},
         ],
-        temperature=0.1,
+        temperature=0.0,
         max_tokens=10
     )
 
-    # Extract classification from response
+    # Extract classification
     path_decision = response.choices[0].message.content.strip().upper()
 
-    # Validate output (in case the model returns something unexpected)
-    valid_categories = ["RESET","INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"]
+    valid_categories = [
+        "RESET",
+        "INSURANCE_SERVICE",
+        "INSURANCE_PRODUCT",
+        "CONTINUE CONVERSATION",
+        "MORE",
+        "OFF-TOPIC"
+    ]
+
+    # Validate output
     if path_decision not in valid_categories:
         path_decision = "OFF-TOPIC"
-    
+
     return path_decision
 
 
