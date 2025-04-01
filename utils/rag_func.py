@@ -144,10 +144,10 @@ def decide_search_path(user_query, chat_history=None):
 
     Guidelines:
     - If the user explicitly asks or strongly implies wanting to reset the chat, choose "RESET".
-    - If the query is about insurance services in particular (e.g., "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า"), choose "INSURANCE_SERVICE".
+    - If the query is about services in particular (e.g., "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า"), choose "INSURANCE_SERVICE".
     - If the query involves insurance product (e.g., "แนะนำประกัน","ขอดูประกัน","มีประกัน" หรืออื่่นๆ etc.) but not specifically "Insurance Service," choose "INSURANCE_PRODUCT".
     - If the query is ask more detail of previous conversation that said in conversation history, choose "CONTINUE CONVERSATION".
-    - If the query is ask more product data of previous conversation likes (e.g., 'show me more product','tell me more'), choose "MORE".
+    - If the query is ask more product data of previous conversation likes (e.g., 'show me more product','tell me more product'), choose "MORE".
     - Otherwise, choose "OFF-TOPIC".
 
     Return ONLY one of these category labels: RESET, INSURANCE_SERVICE, INSURANCE_PRODUCT, CONTINUE CONVERSATION, MORE, or OFF-TOPIC.
