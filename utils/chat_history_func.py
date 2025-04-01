@@ -22,7 +22,7 @@ def get_chat_history(user_id, limit=20):
     ))
     messages.reverse()
     history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages])
-    summary = summarize_text(history_text,3500,user_id,latest_decide='')
+    summary = summarize_text(history_text,3500,user_id)
     return summary
 
 def get_latest_decide(user_id, limit=1):
