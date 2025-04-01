@@ -6,9 +6,7 @@ from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 
-
 load_dotenv()
-
 
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
