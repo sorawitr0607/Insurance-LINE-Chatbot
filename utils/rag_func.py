@@ -117,7 +117,7 @@ def summarize_text(text, max_chars, user_id):
 def summarize_context(new_question,chat_history):
 
     system_prompt = f"""
-Summarize the following chat history along with the latest user question. The summary should be concise, context-rich, and suitable for vector-based search and retrieval. Retain key concepts, user intents, queries, and assistant responses that are relevant for understanding the context and the user’s current goal. Include the new user question in the summary to capture the latest intent. Do not include conversational fillers or unnecessary details.
+Summarize the following chat history and the latest user question into a concise, context-rich summary suitable for vector-based search and retrieval. Capture key concepts, specific instructions, queries, and responses. **Preserve all specific names, such as product names** mentioned in the conversation or question.
 
 Chat History:
 {chat_history}
@@ -132,7 +132,7 @@ Latest User Question:
             {"role": "user", "content": text}
         ],
         temperature=0.3,
-        max_tokens=150
+        max_tokens=200
     )
     summary = response.choices[0].message.content.strip()
     return summary
