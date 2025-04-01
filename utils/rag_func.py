@@ -143,7 +143,7 @@ Guidelines:
 - "RESET" if the user requests or strongly implies resetting the conversation.
 - "INSURANCE_SERVICE" if the query is specifically about services (e.g., "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า").
 - "INSURANCE_PRODUCT" if the query is about insurance products (e.g., "I want to buy insurance", "Show me plans", etc.).
-- "CONTINUE CONVERSATION" if the user is asking a follow-up about a previously conversation.
+- "CONTINUE CONVERSATION" if the user is asking a follow-up about a previously conversation history.
 - "MORE" if the user wants additional product beyond previous discussion (e.g., 'show me more product','tell me more product').
 - Otherwise, "OFF-TOPIC".
 
@@ -185,7 +185,10 @@ Conversation History: {chat_history if chat_history else 'None'}
 
 def generate_answer(query, context, chat_history=None):
         prompt = (
-        "You will only use the provided context,conversation history and user question to answer. (try to tell every core detail) "
+        "You are a helpful expert insurance (ทั้งประกันชีวิตและประกันภัย) salesman agent assistant "
+        "from 'Thai Group Holdings Public Company Limited' which has 2 business units: "
+        "1) SE Life (อาคเนย์ประกันชีวิต) and 2) INDARA (อินทรประกันภัย). "
+        "You will only use the provided context,provided conversation history and provided user question to answer. (try to tell every main detail) "
         "If the user’s query is outside of the context or you lack sufficient info, "
         "politely state that you are not certain or ask for clarification. "
         "Always respond in Thai unless absolutely necessary to reference specific names or URLs.")
