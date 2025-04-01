@@ -143,7 +143,7 @@ Guidelines:
 - "RESET" if the user requests or strongly implies resetting the conversation.
 - "INSURANCE_SERVICE" if the query is specifically about services (e.g., "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า").
 - "INSURANCE_PRODUCT" if the query is about insurance products (e.g., "I want to buy insurance", "Show me plans", etc.).
-- "CONTINUE CONVERSATION" if the user is asking a follow-up about a previously discussed topic.
+- "CONTINUE CONVERSATION" if the user is asking a follow-up about a previously conversation.
 - "MORE" if the user wants additional product beyond previous discussion (e.g., 'show me more product','tell me more product').
 - Otherwise, "OFF-TOPIC".
 
