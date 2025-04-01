@@ -116,7 +116,7 @@ def summarize_text(text, max_chars, user_id):
     save_chat_history(user_id, "assistant", summary, timestamp,latest_decide=user_latest_decide)
     return summary
 
-def summarize_context(text, user_id):
+def summarize_context(text):
 
     system_prompt = "Summarize the following chat history in a concise and context-rich manner, capturing the most relevant details and intents. This summary should be suitable for vector-based search and retrieval, retaining the key concepts and any specific instructions, queries, or responses. Do not include excessive details or conversational fillers, just the core information."
     response = client.chat.completions.create(
