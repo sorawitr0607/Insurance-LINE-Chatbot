@@ -6,7 +6,11 @@ from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessa
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent,TextMessageContent
 from datetime import datetime
-from utils.chat_history_func import get_chat_history,del_chat_history,save_chat_history
+
+# import sys
+# sys.path.append(r"D:\RAG\AZURE\Deploy\LINE_RAG_API-main\LINE_RAG_API-main")
+
+from utils.chat_history_func import get_chat_history,del_chat_history,save_chat_history,get_latest_decide,get_latest_user_history
 from utils.rag_func import decide_search_path,retrieve_insurance_service_context,retrieve_context,generate_answer
 
 load_dotenv()
@@ -15,7 +19,6 @@ load_dotenv()
 app = Flask(__name__)
 configuration = Configuration(access_token=os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
-
 
 @app.route("/webhook", methods=['POST'])
 def webhook():
@@ -38,7 +41,7 @@ def handle_message(event):
     chat_history = get_chat_history(user_id)
     #print(len(chat_history))
     path_decision = decide_search_path(user_query,chat_history)
-    #print(path_decision)
+    # print(path_decision)
     
     if path_decision == "RESET":
         del_chat_history(user_id)
@@ -58,7 +61,15 @@ def handle_message(event):
     elif path_decision == "INSURANCE_PRODUCT":
         context = retrieve_context(user_query)
     elif path_decision == "CONTINUE CONVERSATION":
-        context = ""
+        latest_decide = get_latest_decide(user_id)
+        chat_user_latest = get_latest_user_history(user_id)
+        context_search = f'{user_query},{chat_user_latest}'
+        if latest_decide == "INSURANCE_SERVICE":
+            context = retrieve_insurance_service_context(context_search)
+            path_decision = 'INSURANCE_SERVICE'
+        elif latest_decide == "INSURANCE_PRODUCT":
+            context = retrieve_insurance_service_context(context_search)
+            path_decision = 'INSURANCE_PRODUCT'
     elif path_decision == "MORE":
         context = retrieve_context(user_query,10)
     else:
@@ -77,8 +88,8 @@ def handle_message(event):
         )
 
     timestamp = datetime.now()
-    save_chat_history(user_id, "user", user_query, timestamp)
-    save_chat_history(user_id, "assistant", response, timestamp)
+    save_chat_history(user_id, "user", user_query, timestamp,path_decision)
+    save_chat_history(user_id, "assistant", response, timestamp,path_decision)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
