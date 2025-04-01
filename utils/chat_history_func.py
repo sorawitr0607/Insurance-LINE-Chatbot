@@ -36,9 +36,9 @@ def get_latest_decide(user_id, limit=1):
     latest_decide = "\n".join([f"{m['path_decision']}" for m in messages])
     return latest_decide
 
-def get_latest_user_history(user_id, limit=1):
+def get_latest_user_history(user_id, limit=2):
     messages = list(conversations.find(
-        {"user_id": user_id,"sender" : "user"},
+        {"user_id": user_id},
         sort=[("timestamp", -1)],
         limit=limit
     ))
