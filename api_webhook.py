@@ -11,7 +11,7 @@ from datetime import datetime
 # sys.path.append(r"D:\RAG\AZURE\Deploy\LINE_RAG_API-main\LINE_RAG_API-main")
 
 from utils.chat_history_func import get_chat_history,del_chat_history,save_chat_history,get_latest_decide,get_latest_user_history
-from utils.rag_func import decide_search_path,retrieve_insurance_service_context,retrieve_context,generate_answer
+from utils.rag_func import decide_search_path,retrieve_insurance_service_context,retrieve_context,generate_answer,summarize_context
 
 load_dotenv()
 
@@ -63,7 +63,8 @@ def handle_message(event):
     elif path_decision == "CONTINUE CONVERSATION":
         latest_decide = get_latest_decide(user_id)
         chat_user_latest = get_latest_user_history(user_id)
-        context_search = f'{user_query},{chat_user_latest}'
+        context_search = f'user_new_question : {user_query}, user_chat_history : {chat_user_latest}'
+        summary_context_search = summarize_context(context_search)
         if latest_decide == "INSURANCE_SERVICE":
             context = retrieve_insurance_service_context(context_search)
             path_decision = 'INSURANCE_SERVICE'
