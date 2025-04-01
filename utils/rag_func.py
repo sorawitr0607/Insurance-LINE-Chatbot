@@ -93,7 +93,7 @@ def retrieve_insurance_service_context(query, top_k=3):
     )
     return "\n\n".join(print_results_service(results))
 
-def summarize_text(text, max_chars, user_id,latest_decide):
+def summarize_text(text, max_chars, user_id):
 
     if len(text) <= max_chars:
         return text
@@ -112,7 +112,8 @@ def summarize_text(text, max_chars, user_id,latest_decide):
     timestamp = datetime.now()
     from utils.chat_history_func import save_chat_history,del_chat_history
     del_chat_history(user_id)
-    save_chat_history(user_id, "assistant", summary, timestamp,latest_decide)
+    user_latest_decide = get_latest_decide(user_id)
+    save_chat_history(user_id, "assistant", summary, timestamp,latest_decide=user_latest_decide)
     return summary
 
 
