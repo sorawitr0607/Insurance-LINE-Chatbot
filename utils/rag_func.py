@@ -5,6 +5,7 @@ from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 load_dotenv()
 
@@ -107,7 +108,7 @@ def summarize_text(text, max_chars, user_id):
         max_tokens=1000
     )
     summary = response.choices[0].message.content.strip()
-    timestamp = datetime.now()
+    timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
     from utils.chat_history_func import save_chat_history,del_chat_history,get_latest_decide
     del_chat_history(user_id)
     user_latest_decide = get_latest_decide(user_id)
