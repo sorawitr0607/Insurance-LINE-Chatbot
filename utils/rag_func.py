@@ -228,8 +228,7 @@ Conversation History: {chat_history if chat_history else 'None'}
         ],
         temperature=0.3,  # Lower temperature to reduce random variations
         max_tokens=10,
-        # You can use a 'stop' sequence to prevent extra text:
-        # stop=["\n","."]
+
     )
 
     # Extract classification
