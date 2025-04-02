@@ -6,8 +6,27 @@ from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 from zoneinfo import ZoneInfo
+# from guardrails import Guard, OnFailAction, configure
+# from guardrails.hub import BespokeMiniCheck
 
 load_dotenv()
+
+# hub_token = os.getenv("GUARDRAILS_TOKEN")
+
+# configure(
+#     enable_metrics=True,
+#     enable_remote_inferencing=True,
+#     token=hub_token
+# )
+
+# # Instantiate Guard and use BespokeMiniCheck
+# guard = Guard().use(
+#     BespokeMiniCheck(
+#         split_sentences=True,
+#         threshold=0.5,
+#         on_fail=OnFailAction.REASK,   # or OnFailAction.FIX, or OnFailAction.FIX_REASK
+#     )
+# )
 
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
@@ -117,8 +136,28 @@ def summarize_text(text, max_chars, user_id):
 
 def summarize_context(new_question,chat_history):
 
-    system_prompt = 'Summarize the following chat history and the latest user question into a concise, context-rich summary. Capture key concepts and responses. **Preserve all specific names, exact wording and word in * , such as product names** mentioned in the conversation or latest user question.'
-    text = f'Chat History: {chat_history} Latest User Question: {new_question}'
+    system_prompt = (
+        "You are an expert summarizer for a vector-based retrieval system. Your goal is "
+        "to produce a concise, context-rich summary focused on the user's latest question. "
+        "Include only details from the conversation history that are directly relevant "
+        "to the new question. Omit irrelevant or off-topic content, and do not include URLs."
+        "\n\n"
+        "Ensure you preserve exact wording for any product names or special terms (including "
+        "those in asterisks, e.g., *ProductName*). Keep it short but detailed enough that "
+        "someone reading this summary can address the user's latest question accurately."
+    )
+    text = f"""
+    Chat History: {chat_history}
+    Latest User Question: {new_question}
+
+    Instructions:
+    - Focus on the user’s new question and only summarize the parts of the chat that are relevant.
+    - If the new question refers to, for example, “the second insurance product,” then only include
+      the details needed about that second product, ignoring the rest.
+    - Preserve special terms or product names exactly as they appear (e.g., *ProductX*).
+    - Exclude URLs or disclaimers unless the user specifically wants them.
+    - Keep the summary concise but complete enough for follow-up vector-based retrieval.
+    """.strip()
     response = client.chat.completions.create(
         model=chat_model,
         messages=[
@@ -126,43 +165,71 @@ def summarize_context(new_question,chat_history):
             {"role": "user", "content": text}
         ],
         temperature=0.2,
-        max_tokens=250
+        max_tokens=200
     )
     summary = response.choices[0].message.content.strip()
+    print(summary)
     return summary
 
 
 def decide_search_path(user_query, chat_history=None):
 
-    # Build a short, direct prompt
     classification_prompt = f"""
 You are a highly accurate text classification model. 
 Determine which single label (from the set: RESET, INSURANCE_SERVICE, INSURANCE_PRODUCT, 
-CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits the user's latest query. 
+CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits this scenario, based on the User Query and the Conversation History.
 
-Guidelines:
-- "RESET" if the user requests or strongly implies resetting the conversation.
-- "INSURANCE_SERVICE" if the query is specifically about services (e.g., "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า").
-- "INSURANCE_PRODUCT" if the query is about insurance products (e.g., "I want to buy insurance", "Show me plans", etc.).
-- "CONTINUE CONVERSATION" if the user is asking a follow-up about a previously conversation history.
-- "MORE" if the user wants additional product beyond previous discussion (e.g., 'show me more product','tell me more product').
-- Otherwise, "OFF-TOPIC".
+Definitions and guidelines:
+
+1. RESET
+   - If the user says "CHAT RESET" or explicitly requests to restart or reset the conversation.
+
+2. CONTINUE CONVERSATION
+   - The user is clearly asking a follow-up question.
+   - Or user references details that were already mentioned in the conversation history.
+   - Example:
+       - "Could you give me more information on insurance we talked about?"
+       - "Clarify the cost you mentioned earlier."
+       - "You said something about life coverage; can you elaborate?"
+       - If the conversation history included "I want to buy insurance. Do you have life coverage?" 
+         and the new user query says "tell me more about the first one," then it's classify to CONTINUE CONVERSATION.
+
+3. INSURANCE_SERVICE
+   - Specifically about insurance services such as "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า", etc.
+
+4. INSURANCE_PRODUCT
+   - The user wants to buy, see, or compare insurance products such as life insurance or auto insurance policies.
+
+5. MORE
+   - The user specifically asks for additional products or variations beyond what was previously discussed.
+   - Common triggers might be phrases like "Show me more products" or "What else do you have?"
+
+6. OFF-TOPIC
+   - Anything not covered above, or the user’s query is irrelevant to insurance.
 
 Return ONLY one label. Do not add explanations.
 
+------------------------------------
 User Query: {user_query}
 Conversation History: {chat_history if chat_history else 'None'}
-""".strip()
+"""
 
-    # Call the OpenAI Chat Completion endpoint
     response = client.chat.completions.create(
         model=chat_model,
         messages=[
-            {"role": "system", "content": "You are a classification model. Return only one label."},
-            {"role": "user", "content": classification_prompt},
+            {
+                "role": "system",
+                "content": "You are a classification model. Return only one label: RESET, INSURANCE_SERVICE, INSURANCE_PRODUCT, CONTINUE CONVERSATION, MORE, OFF-TOPIC."
+            },
+            {
+                "role": "user",
+                "content": classification_prompt
+            },
         ],
-        temperature=0.0,
-        max_tokens=10
+        temperature=0.3,  # Lower temperature to reduce random variations
+        max_tokens=10,
+        # You can use a 'stop' sequence to prevent extra text:
+        # stop=["\n","."]
     )
 
     # Extract classification
