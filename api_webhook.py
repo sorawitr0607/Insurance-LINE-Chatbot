@@ -87,6 +87,7 @@ def handle_message(event):
 
     timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
     save_chat_history(user_id, "user", user_query, timestamp,path_decision)
+    timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
     save_chat_history(user_id, "assistant", response, timestamp,path_decision)
 
 if __name__ == "__main__":
