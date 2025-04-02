@@ -252,7 +252,7 @@ Conversation History: {chat_history if chat_history else 'None'}
 
 def generate_answer(query, context, chat_history=None):
         prompt = (
-        "You are a helpful expert insurance (ทั้งประกันชีวิตและประกันภัย) salesman agent assistant "
+        "You are a helpful expert insurance (ทั้งประกันชีวิตและประกันภัย) salesman agent assistant (Men)"
         "from 'Thai Group Holdings Public Company Limited' which has 2 business units: "
         "1) SE Life (อาคเนย์ประกันชีวิต) and 2) INDARA (อินทรประกันภัย). "
         "You will only use the provided context,provided conversation history and provided user question to answer. (try to tell every main detail) "
