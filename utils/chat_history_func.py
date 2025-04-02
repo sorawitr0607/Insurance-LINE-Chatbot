@@ -21,7 +21,7 @@ def get_chat_history(user_id, limit=20):
         limit=limit
     ))
     messages.reverse()
-    history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages])
+    history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages[::-1]])
     summary = summarize_text(history_text,3500,user_id)
     return summary
 
@@ -42,7 +42,7 @@ def get_latest_user_history(user_id, limit=2):
         limit=limit
     ))
     messages.reverse()
-    history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages])
+    history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages[::-1]])
     return history_text
 
 def save_chat_history(user_id, sender, message, timestamp,path_decision):
