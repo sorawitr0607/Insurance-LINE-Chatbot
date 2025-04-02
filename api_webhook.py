@@ -8,9 +8,6 @@ from linebot.v3.webhooks import MessageEvent,TextMessageContent
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# import sys
-# sys.path.append(r"D:\RAG\AZURE\Deploy\LINE_RAG_API-main\LINE_RAG_API-main")
-
 from utils.chat_history_func import get_chat_history,del_chat_history,save_chat_history,get_latest_decide,get_latest_user_history
 from utils.rag_func import decide_search_path,retrieve_insurance_service_context,retrieve_context,generate_answer,summarize_context
 
