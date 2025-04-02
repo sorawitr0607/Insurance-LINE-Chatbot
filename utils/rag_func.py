@@ -168,7 +168,7 @@ def summarize_context(new_question,chat_history):
         max_tokens=200
     )
     summary = response.choices[0].message.content.strip()
-    print(summary)
+    # print(summary)
     return summary
 
 
