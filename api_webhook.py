@@ -68,8 +68,8 @@ def handle_message(event):
         if latest_decide == "INSURANCE_SERVICE":
             context = retrieve_insurance_service_context(summary_context_search)
             path_decision = 'INSURANCE_SERVICE'
-        elif latest_decide == "INSURANCE_PRODUCT":
-            context = retrieve_insurance_service_context(summary_context_search)
+        else:
+            context = retrieve_context(summary_context_search)
             path_decision = 'INSURANCE_PRODUCT'
     elif path_decision == "MORE":
         context = retrieve_context(user_query,10)
