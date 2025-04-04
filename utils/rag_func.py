@@ -87,14 +87,15 @@ def retrieve_context(query, top_k=10 , skip_k=0):
         k_nearest_neighbors=100, 
         fields="text_vector")
     results = search_client.search(
-        search_text=None,
+        query_type="semantic",
+        semantic_configuration_name="product-vector-paid-semantic-configuration",
+        search_text=query,
         vector_queries= [vector_query],
         select=["Product_Segment","Product_Name", "Unique_Pros", "Benefit","Condition","Product_Description","Product_URL"],
         top=top_k,
         skip = skip_k
-        
     )
-    return "\n\n".join(print_results(results))
+    return "=================\n".join(print_results(results))
 
 def retrieve_insurance_service_context(query, top_k=3):
     query_vector = embed_text(query)
@@ -104,12 +105,14 @@ def retrieve_insurance_service_context(query, top_k=3):
         fields="text_vector"
     )
     results = service_search_client.search(
-        search_text=None,
-        vector_queries=[vector_query],
+        query_type="semantic",
+        semantic_configuration_name="service-vector-plan-semantic-configuration",
+        search_text=query,
+        vector_queries= [vector_query],
         select=["Service_Segment","Service_Name","Service_Detail","Service_URL"],
         top=top_k
     )
-    return "\n\n".join(print_results_service(results))
+    return "=================\n".join(print_results_service(results))
 
 def summarize_text(text, max_chars, user_id):
 
@@ -195,7 +198,7 @@ Definitions and guidelines:
          and the new user query says "tell me more about the first one," then it's classify to CONTINUE CONVERSATION.
 
 3. INSURANCE_SERVICE
-   - Specifically about insurance services such as "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า", etc.
+   - Specifically about insurance services such as "ติดต่อสอบถาม", "เอกสาร" , "แบบฟอร์ม", "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า", etc.
 
 4. INSURANCE_PRODUCT
    - The user wants to buy, see, or compare insurance products such as life insurance or auto insurance policies.
