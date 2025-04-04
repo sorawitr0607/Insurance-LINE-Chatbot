@@ -80,7 +80,7 @@ def print_results_service(results):
     return answer
         
 
-def retrieve_context(query, top_k=10 , skip_k=0):
+def retrieve_context(query, top_k=7 , skip_k=0):
     query_vector = embed_text(query)
     vector_query = VectorizedQuery(
         vector=query_vector, 
