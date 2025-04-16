@@ -87,8 +87,8 @@ def retrieve_context(query, top_k=7 , skip_k=0):
         k_nearest_neighbors=100, 
         fields="text_vector")
     results = search_client.search(
-        query_type="semantic",
-        semantic_configuration_name="product-vector-paid-semantic-configuration",
+        # query_type="semantic",
+        # semantic_configuration_name="product-vector-paid-semantic-configuration",
         search_text=query,
         vector_queries= [vector_query],
         select=["Product_Segment","Product_Name", "Unique_Pros", "Benefit","Condition","Product_Description","Product_URL"],
@@ -105,8 +105,8 @@ def retrieve_insurance_service_context(query, top_k=3):
         fields="text_vector"
     )
     results = service_search_client.search(
-        query_type="semantic",
-        semantic_configuration_name="service-vector-plan-semantic-configuration",
+        # query_type="semantic",
+        # semantic_configuration_name="service-vector-plan-semantic-configuration",
         search_text=query,
         vector_queries= [vector_query],
         select=["Service_Segment","Service_Name","Service_Detail","Service_URL"],
