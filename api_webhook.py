@@ -8,8 +8,11 @@ from linebot.v3.webhooks import MessageEvent,TextMessageContent
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+# import sys
+# sys.path.append(r"D:\RAG\AZURE\New Deploy (2)\LINE_RAG_API-main (2)\LINE_RAG_API-main")
+
 from utils.chat_history_func import get_chat_history,del_chat_history,save_chat_history,get_latest_decide,get_latest_user_history
-from utils.rag_func import decide_search_path,retrieve_insurance_service_context,retrieve_context,generate_answer,summarize_context
+from utils.rag_func import decide_search_path,generate_answer,summarize_context,get_search_results #,retrieve_insurance_service_context,retrieve_context
 
 load_dotenv()
 
@@ -38,6 +41,7 @@ def handle_message(event):
     chat_history = get_chat_history(user_id)
     #print(len(chat_history))
     path_decision = decide_search_path(user_query,chat_history)
+    
     # print(path_decision)
     
     if path_decision == "RESET":
@@ -54,21 +58,26 @@ def handle_message(event):
 
     
     if path_decision == "INSURANCE_SERVICE":
-        context = retrieve_insurance_service_context(user_query)
+        # context = retrieve_insurance_service_context(user_query)
+        context = get_search_results(query=user_query, top_k=3, skip_k=0, service = True)
     elif path_decision == "INSURANCE_PRODUCT":
-        context = retrieve_context(user_query)
+        # context = retrieve_context(user_query)
+        context = get_search_results(query=user_query, top_k=7, skip_k=0, service = False)
     elif path_decision == "CONTINUE CONVERSATION":
         latest_decide = get_latest_decide(user_id)
         chat_user_latest = get_latest_user_history(user_id)
         summary_context_search = summarize_context(user_query,chat_user_latest)
         if latest_decide == "INSURANCE_SERVICE":
-            context = retrieve_insurance_service_context(summary_context_search)
+            # context = retrieve_insurance_service_context(summary_context_search)
+            context = get_search_results(query=summary_context_search, top_k=3, skip_k=0, service = True)
             path_decision = 'INSURANCE_SERVICE'
         else:
-            context = retrieve_context(summary_context_search)
+            # context = retrieve_context(summary_context_search)
+            context = get_search_results(query=summary_context_search, top_k=7, skip_k=0, service = False)
             path_decision = 'INSURANCE_PRODUCT'
     elif path_decision == "MORE":
-        context = retrieve_context(user_query,10)
+        # context = retrieve_context(user_query,10)
+        context = get_search_results(query=user_query, top_k=7, skip_k=7, service = False)
     else:
         chat_history = None
         context = ""
@@ -91,3 +100,4 @@ def handle_message(event):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
+    # app.run(debug=True,use_reloader=False)

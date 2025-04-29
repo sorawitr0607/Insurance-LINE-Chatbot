@@ -1,39 +1,35 @@
 from openai import OpenAI
 import os
+import pickle
 from dotenv import load_dotenv
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 from zoneinfo import ZoneInfo
-# from guardrails import Guard, OnFailAction, configure
-# from guardrails.hub import BespokeMiniCheck
+import bmemcached
 
 load_dotenv()
 
-# hub_token = os.getenv("GUARDRAILS_TOKEN")
 
-# configure(
-#     enable_metrics=True,
-#     enable_remote_inferencing=True,
-#     token=hub_token
-# )
+memcached_endpoint = os.getenv("MEMCACHED_ENDPOINT")
+memcached_port = os.getenv("MEMCACHED_PORT")
+memcached_username = os.getenv("MEMCACHED_USERNAME")
+memcached_password = os.getenv("MEMCACHED_PASSWORD")
+  
 
-# # Instantiate Guard and use BespokeMiniCheck
-# guard = Guard().use(
-#     BespokeMiniCheck(
-#         split_sentences=True,
-#         threshold=0.5,
-#         on_fail=OnFailAction.REASK,   # or OnFailAction.FIX, or OnFailAction.FIX_REASK
-#     )
-# )
+mc_client = bmemcached.Client(
+    (f"{memcached_endpoint}:{memcached_port}",), 
+    memcached_username,
+    memcached_password             
+)
 
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
 chat_model = os.getenv("OPENAI_CHAT_MODEL")
 
+
 client = OpenAI(
-    # This is the default and can be omitted
     api_key=os.getenv("OPENAI_API_KEY"),
 )
 
@@ -50,13 +46,26 @@ service_search_client = SearchClient(
     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
 )
 
+EMBED_CACHE_TTL = int(24 * 3600)
+SEARCH_CACHE_TTL = int(3600)
+
+
 def embed_text(text: str):
-    text = text.replace("\n", " ")
+
+    normalized = text.replace("\n", " ").strip()
+    key = f"embed:{normalized}"
+    # print(key)
+    cached = mc_client.get(key)
+    if cached:
+        return pickle.loads(cached)
+
     response = client.embeddings.create(
-        input= text,
+        input=normalized,
         model= embedding_model
     )
-    return response.data[0].embedding
+    embedding = response.data[0].embedding
+    mc_client.set(key, pickle.dumps(embedding),EMBED_CACHE_TTL)
+    return embedding
 
 def print_results(results):
     answer = []
@@ -80,39 +89,38 @@ def print_results_service(results):
     return answer
         
 
-def retrieve_context(query, top_k=7 , skip_k=0):
-    query_vector = embed_text(query)
-    vector_query = VectorizedQuery(
-        vector=query_vector, 
+def get_search_results(query: str, top_k: int, skip_k:int=0, service: bool = False):
+
+    normalized = query.strip()
+    key = f"search:{'svc' if service else 'prd'}:{normalized}|{top_k}|{skip_k}"
+    # print(key)
+    cached = mc_client.get(key)
+    if cached:
+        return pickle.loads(cached)
+
+    vect = embed_text(query)
+    vq = VectorizedQuery(
+        vector=vect, 
         k_nearest_neighbors=100, 
-        fields="text_vector")
-    results = search_client.search(
-        # query_type="semantic",
-        # semantic_configuration_name="product-vector-paid-semantic-configuration",
+        fields="text_vector"
+    )
+    client_to_use = service_search_client if service else search_client
+    results = client_to_use.search(
         search_text=query,
-        vector_queries= [vector_query],
-        select=["Product_Segment","Product_Name", "Unique_Pros", "Benefit","Condition","Product_Description","Product_URL"],
+        vector_queries=[vq],
+        select=(
+            ["Service_Segment","Service_Name","Service_Detail","Service_URL"] if service
+            else ["Product_Segment","Product_Name","Unique_Pros","Benefit","Condition","Product_Description","Product_URL"]
+        ),
         top=top_k,
         skip = skip_k
     )
-    return "=================\n".join(print_results(results))
-
-def retrieve_insurance_service_context(query, top_k=3):
-    query_vector = embed_text(query)
-    vector_query = VectorizedQuery(
-        vector=query_vector, 
-        k_nearest_neighbors=50, 
-        fields="text_vector"
+    text = "=================\n".join(
+        print_results_service(results) if service
+        else print_results(results)
     )
-    results = service_search_client.search(
-        # query_type="semantic",
-        # semantic_configuration_name="service-vector-plan-semantic-configuration",
-        search_text=query,
-        vector_queries= [vector_query],
-        select=["Service_Segment","Service_Name","Service_Detail","Service_URL"],
-        top=top_k
-    )
-    return "=================\n".join(print_results_service(results))
+    mc_client.set(key, pickle.dumps(text),SEARCH_CACHE_TTL)
+    return text
 
 def summarize_text(text, max_chars, user_id):
 
@@ -134,7 +142,7 @@ def summarize_text(text, max_chars, user_id):
     from utils.chat_history_func import save_chat_history,del_chat_history,get_latest_decide
     del_chat_history(user_id)
     user_latest_decide = get_latest_decide(user_id)
-    save_chat_history(user_id, "assistant", summary, timestamp,latest_decide=user_latest_decide)
+    save_chat_history(user_id, "assistant", summary, timestamp,user_latest_decide)
     return summary
 
 def summarize_context(new_question,chat_history):
@@ -275,14 +283,5 @@ def generate_answer(query, context, chat_history=None):
             max_tokens=700)
             
         raw_response = response.choices[0].message.content.strip()
-        
-        # print(raw_response)
-    
-        # guarded_answer = guard.parse(
-        # text=raw_response,
-        # reference_text=context,
-        # llm_api=client.chat.completions.create)
-        
-        # print(guarded_answer)
         
         return raw_response

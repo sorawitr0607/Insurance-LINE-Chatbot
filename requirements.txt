@@ -4,3 +4,4 @@ python-dotenv
 azure-search-documents
 line-bot-sdk
 pymongo
+python-binary-memcached
