@@ -128,7 +128,7 @@ def summarize_text(text, max_chars, user_id):
     if len(text) <= max_chars:
         return text
     
-    system_prompt = "You are a helpful assistant. Condense the user's conversation by selectively removing less important or redundant information. Prioritize preserving numeric details, specific names, exact wording, key facts, and recent messages. Avoid overly summarizing; keep the original details intact."
+    system_prompt = "You are a helpful assistant. Condense the user's conversation by selectively removing less important or redundant information. Prioritize preserving numeric details, specific names, exact wording, key facts, and recent messages. Avoid overly summarizing; keep the original details intact.,Respond concisely and not exceed 1000 tokens."
     response = client.chat.completions.create(
         model=chat_model,
         messages=[
@@ -157,6 +157,7 @@ def summarize_context(new_question,chat_history):
         "Ensure you preserve exact wording for any product names or special terms (including "
         "those in asterisks, e.g., *ProductName*). Keep it short but detailed enough that "
         "someone reading this summary can address the user's latest question accurately."
+        "Respond concisely and within 180 tokens."
     )
     text = f"""
     Chat History: {chat_history}
@@ -169,6 +170,7 @@ def summarize_context(new_question,chat_history):
     - Preserve special terms or product names exactly as they appear (e.g., *ProductX*).
     - Exclude URLs or disclaimers unless the user specifically wants them.
     - Keep the summary concise but complete enough for follow-up vector-based retrieval.
+    
     """.strip()
     response = client.chat.completions.create(
         model=chat_model,
@@ -270,7 +272,8 @@ def generate_answer(query, context, chat_history=None):
         "You will only use the provided context,provided conversation history and provided user question to answer. (try to tell every main detail) "
         "If the user’s query is outside of the context or you lack sufficient info, "
         "politely state that you are not certain or ask for clarification. "
-        "Always respond in Thai unless absolutely necessary to reference specific names or URLs.")
+        "Always respond in Thai unless absolutely necessary to reference specific names or URLs."
+        "Respond concisely and within 680 tokens")
         user_prompt = f"""
     Conversation History: {chat_history if chat_history else 'None'}
     Context: {context}
