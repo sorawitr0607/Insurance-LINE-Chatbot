@@ -43,37 +43,6 @@ def get_conversation_state(user_id, history_limit=20, summary_max_chars=3500):
 
     return summary, latest_decision, latest_user_history
 
-# def get_chat_history(user_id, limit=20):
-#     from utils.rag_func import summarize_text
-#     messages = list(conversations.find(
-#         {"user_id": user_id},
-#         sort=[("timestamp", -1)],
-#         limit=limit
-#     ))
-#     messages.reverse()
-#     history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages])
-#     summary = summarize_text(history_text,3500,user_id)
-#     return summary
-
-# def get_latest_decide(user_id, limit=1):
-#     messages = list(conversations.find(
-#         {"user_id": user_id},
-#         sort=[("timestamp", -1)],
-#         limit=limit
-#     ))
-#     messages.reverse()
-#     latest_decide = "\n".join([f"{m['path_decision']}" for m in messages])
-#     return latest_decide
-
-# def get_latest_user_history(user_id, limit=2):
-#     messages = list(conversations.find(
-#         {"user_id": user_id},
-#         sort=[("timestamp", -1)],
-#         limit=limit
-#     ))
-#     messages.reverse()
-#     history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages[::-1]])
-#     return history_text
 
 def save_chat_history(user_id, sender, message, timestamp,path_decision):
     conversations.insert_one({
