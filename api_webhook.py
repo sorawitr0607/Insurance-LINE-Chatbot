@@ -38,13 +38,8 @@ def webhook():
 def handle_message(event):
     user_query = event.message.text
     user_id = event.source.user_id
-    chat_history = get_chat_history(user_id)
-    #print(len(chat_history))
-    path_decision = decide_search_path(user_query,chat_history)
     
-    # print(path_decision)
-    
-    if path_decision == "RESET":
+    if user_query == "CHAT RESET":
         del_chat_history(user_id)
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
@@ -55,6 +50,14 @@ def handle_message(event):
                 )
             )
         return
+    
+    chat_history = get_chat_history(user_id)
+    #print(len(chat_history))
+    path_decision = decide_search_path(user_query,chat_history)
+    
+    # print(path_decision)
+    
+    
 
     
     if path_decision == "INSURANCE_SERVICE":

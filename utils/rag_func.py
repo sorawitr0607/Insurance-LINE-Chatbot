@@ -190,13 +190,10 @@ def decide_search_path(user_query, chat_history=None):
 
     classification_prompt = f"""
 You are a highly accurate text classification model. 
-Determine which single label (from the set: RESET, INSURANCE_SERVICE, INSURANCE_PRODUCT, 
+Determine which single label (from the set: INSURANCE_SERVICE, INSURANCE_PRODUCT, 
 CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits this scenario, based on the User Query and the Conversation History.
 
 Definitions and guidelines:
-
-1. RESET
-   - If the user says "CHAT RESET" or explicitly requests to restart or reset the conversation.
 
 2. CONTINUE CONVERSATION
    - The user is clearly asking a follow-up question.
@@ -233,7 +230,7 @@ Conversation History: {chat_history if chat_history else 'None'}
         messages=[
             {
                 "role": "system",
-                "content": "You are a classification model. Return only one label: RESET, INSURANCE_SERVICE, INSURANCE_PRODUCT, CONTINUE CONVERSATION, MORE, OFF-TOPIC."
+                "content": "You are a classification model. Return only one label: INSURANCE_SERVICE, INSURANCE_PRODUCT, CONTINUE CONVERSATION, MORE, OFF-TOPIC."
             },
             {
                 "role": "user",
@@ -249,7 +246,6 @@ Conversation History: {chat_history if chat_history else 'None'}
     path_decision = response.choices[0].message.content.strip().upper()
 
     valid_categories = [
-        "RESET",
         "INSURANCE_SERVICE",
         "INSURANCE_PRODUCT",
         "CONTINUE CONVERSATION",
