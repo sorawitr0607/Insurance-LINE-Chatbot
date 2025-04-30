@@ -27,6 +27,7 @@ mc_client = bmemcached.Client(
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
 chat_model = os.getenv("OPENAI_CHAT_MODEL")
+classify_model = os.getenv("OPENAI_CLASSIFY_MODEL")
 
 
 client = OpenAI(
@@ -226,7 +227,7 @@ Conversation History: {chat_history if chat_history else 'None'}
 """
 
     response = client.chat.completions.create(
-        model=chat_model,
+        model=classify_model,
         messages=[
             {
                 "role": "system",
