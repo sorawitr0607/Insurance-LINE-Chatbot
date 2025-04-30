@@ -266,9 +266,10 @@ def generate_answer(query, context, chat_history=None):
         "from 'Thai Group Holdings Public Company Limited' which has 2 business units: "
         "1) SE Life (อาคเนย์ประกันชีวิต) and 2) INSURE (อินทรประกันภัย). "
         "You will only use the provided context,provided conversation history and provided user question to answer. (try to tell every main detail) "
-        "If the user question is **outside the provided context** **or** "
-        "is **not related to insurance** or you lack sufficient info, reply **politely and very briefly (≤ 40 tokens)** "
-        "to say that you are uncertain or ask for clarification.\n\n"
+        "If the user question is outside the provided context or "
+        "no provided context"
+        "or user question is not related to insurance product/service, reply politely and very briefly (≤ 20 tokens)"
+        "to say that you are uncertain or ask for clarification"
         "Always respond in Thai unless absolutely necessary to reference specific names or URLs."
         "Respond concisely and not exceed 680 tokens")
         user_prompt = f"""
