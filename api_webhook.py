@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 # import sys
 # sys.path.append(r"D:\RAG\AZURE\New Deploy (2)\LINE_RAG_API-main (2)\LINE_RAG_API-main")
 
-from utils.chat_history_func import get_chat_history,del_chat_history,save_chat_history,get_latest_decide,get_latest_user_history
+from utils.chat_history_func import get_conversation_state,del_chat_history,save_chat_history  #get_chat_history,get_latest_decide,get_latest_user_history
 from utils.rag_func import decide_search_path,generate_answer,summarize_context,get_search_results #,retrieve_insurance_service_context,retrieve_context
 
 load_dotenv()
@@ -51,7 +51,7 @@ def handle_message(event):
             )
         return
     
-    chat_history = get_chat_history(user_id)
+    chat_history,latest_decide, chat_user_latest = get_conversation_state(user_id)
     #print(len(chat_history))
     path_decision = decide_search_path(user_query,chat_history)
     
@@ -67,8 +67,8 @@ def handle_message(event):
         # context = retrieve_context(user_query)
         context = get_search_results(query=user_query, top_k=7, skip_k=0, service = False)
     elif path_decision == "CONTINUE CONVERSATION":
-        latest_decide = get_latest_decide(user_id)
-        chat_user_latest = get_latest_user_history(user_id)
+        # latest_decide = get_latest_decide(user_id)
+        # chat_user_latest = get_latest_user_history(user_id)
         summary_context_search = summarize_context(user_query,chat_user_latest)
         if latest_decide == "INSURANCE_SERVICE":
             # context = retrieve_insurance_service_context(summary_context_search)

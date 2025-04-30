@@ -13,37 +13,67 @@ mongo_client = MongoClient(mongo_uri)
 db = mongo_client[mongo_db]
 conversations = db[mongo_table]
 
-def get_chat_history(user_id, limit=20):
+
+def get_conversation_state(user_id, history_limit=20, summary_max_chars=3500):
     from utils.rag_func import summarize_text
-    messages = list(conversations.find(
-        {"user_id": user_id},
-        sort=[("timestamp", -1)],
-        limit=limit
-    ))
-    messages.reverse()
-    history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages])
-    summary = summarize_text(history_text,3500,user_id)
-    return summary
 
-def get_latest_decide(user_id, limit=1):
-    messages = list(conversations.find(
+    # 1) Single query for the most recent messages
+    msgs = list(conversations.find(
         {"user_id": user_id},
         sort=[("timestamp", -1)],
-        limit=limit
+        limit=history_limit
     ))
-    messages.reverse()
-    latest_decide = "\n".join([f"{m['path_decision']}" for m in messages])
-    return latest_decide
+    if not msgs:
+        return "", None, ""
 
-def get_latest_user_history(user_id, limit=2):
-    messages = list(conversations.find(
-        {"user_id": user_id},
-        sort=[("timestamp", -1)],
-        limit=limit
-    ))
-    messages.reverse()
-    history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages[::-1]])
-    return history_text
+    # Reverse back to chronological order
+    msgs = list(reversed(msgs))
+
+    # 2) Build raw history text for summarization
+    history_text = "\n".join(f"{m['sender']}: {m['message']}" for m in msgs)
+    summary = summarize_text(history_text, summary_max_chars, user_id)
+
+    # 3) Extract the very last path_decision
+    latest_decision = msgs[-1].get("path_decision")
+
+    # 4) Extract the last 2 user messages
+    user_msgs = [m["message"] for m in msgs if m["sender"] == "user"]
+    # keep up to last 2
+    latest_user_history = "\n".join(user_msgs[-2:]) if len(user_msgs) >= 2 else "\n".join(user_msgs)
+
+    return summary, latest_decision, latest_user_history
+
+# def get_chat_history(user_id, limit=20):
+#     from utils.rag_func import summarize_text
+#     messages = list(conversations.find(
+#         {"user_id": user_id},
+#         sort=[("timestamp", -1)],
+#         limit=limit
+#     ))
+#     messages.reverse()
+#     history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages])
+#     summary = summarize_text(history_text,3500,user_id)
+#     return summary
+
+# def get_latest_decide(user_id, limit=1):
+#     messages = list(conversations.find(
+#         {"user_id": user_id},
+#         sort=[("timestamp", -1)],
+#         limit=limit
+#     ))
+#     messages.reverse()
+#     latest_decide = "\n".join([f"{m['path_decision']}" for m in messages])
+#     return latest_decide
+
+# def get_latest_user_history(user_id, limit=2):
+#     messages = list(conversations.find(
+#         {"user_id": user_id},
+#         sort=[("timestamp", -1)],
+#         limit=limit
+#     ))
+#     messages.reverse()
+#     history_text = "\n".join([f"{m['sender']}: {m['message']}" for m in messages[::-1]])
+#     return history_text
 
 def save_chat_history(user_id, sender, message, timestamp,path_decision):
     conversations.insert_one({
