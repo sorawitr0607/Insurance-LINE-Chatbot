@@ -15,7 +15,6 @@ from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import bmemcached
 
 
 # import sys
@@ -28,6 +27,8 @@ from utils.rag_func import (
     decide_search_path, generate_answer, summarize_context, get_search_results
 )
 
+from utils.cache import get_memcache   
+
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
@@ -38,17 +39,8 @@ app = Flask(__name__)
 configuration = Configuration(access_token=os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-memcached_endpoint = os.getenv("MEMCACHED_ENDPOINT")
-memcached_port = os.getenv("MEMCACHED_PORT")
-memcached_username = os.getenv("MEMCACHED_USERNAME")
-memcached_password = os.getenv("MEMCACHED_PASSWORD")
-  
-
-mc_client = bmemcached.Client(
-    (f"{memcached_endpoint}:{memcached_port}",), 
-    memcached_username,
-    memcached_password             
-)
+    
+mc_client = get_memcache()                 
 
 MESSAGE_WINDOW = 2
 

@@ -7,22 +7,12 @@ from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import bmemcached
+import hashlib
 
 load_dotenv()
 
 
-memcached_endpoint = os.getenv("MEMCACHED_ENDPOINT")
-memcached_port = os.getenv("MEMCACHED_PORT")
-memcached_username = os.getenv("MEMCACHED_USERNAME")
-memcached_password = os.getenv("MEMCACHED_PASSWORD")
-  
 
-mc_client = bmemcached.Client(
-    (f"{memcached_endpoint}:{memcached_port}",), 
-    memcached_username,
-    memcached_password             
-)
 
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
@@ -49,12 +39,13 @@ service_search_client = SearchClient(
 
 EMBED_CACHE_TTL = int(24 * 3600)
 SEARCH_CACHE_TTL = int(3600)
-
+         
 
 def embed_text(text: str):
-
+    from utils.cache import get_memcache   
+    mc_client = get_memcache()
     normalized = text.replace("\n", " ").strip()
-    key = f"embed:{normalized}"
+    key = "embed:" + hashlib.md5(normalized.encode("utf-8")).hexdigest()
     # print(key)
     cached = mc_client.get(key)
     if cached:
@@ -91,9 +82,10 @@ def print_results_service(results):
         
 
 def get_search_results(query: str, top_k: int, skip_k:int=0, service: bool = False):
-
+    from utils.cache import get_memcache   
+    mc_client = get_memcache()
     normalized = query.strip()
-    key = f"search:{'svc' if service else 'prd'}:{normalized}|{top_k}|{skip_k}"
+    key = f"search:{'svc' if service else 'prd'}:"+hashlib.md5(normalized.encode("utf-8")).hexdigest()+f"|{top_k}|{skip_k}"
     # print(key)
     cached = mc_client.get(key)
     if cached:
