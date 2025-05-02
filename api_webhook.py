@@ -141,6 +141,8 @@ def handle_message(event):
             )
         return
     
+    threading.Thread(target=send_loading_indicator, args=(user_id,5)).start()
+    
     cache_key = f"message_buffer:{user_id}"
     cached_data = mc_client.get(cache_key)
     
