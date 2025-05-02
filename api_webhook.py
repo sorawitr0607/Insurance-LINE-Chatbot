@@ -5,9 +5,9 @@ import pickle
 from dotenv import load_dotenv
 from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
-from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessageRequest,TextMessage
+from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessageRequest,TextMessage, QuickReply, QuickReplyItem, MessageAction
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks import MessageEvent,TextMessageContent
+from linebot.v3.webhooks import MessageEvent,TextMessageContent, FollowEvent
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import bmemcached
@@ -39,6 +39,24 @@ mc_client = bmemcached.Client(
 )
 
 MESSAGE_WINDOW = 2
+
+FAQ_CACHED_ANSWERS = {
+    "ประกันชีวิตมีกี่แบบ?": "ประกันชีวิตหลักๆ มีแบบตลอดชีพ แบบสะสมทรัพย์ แบบบำนาญ และแบบชั่วระยะเวลา รายละเอียดเพิ่มเติมที่เว็บไซต์...",
+    "เคลมประกันรถยนต์ยังไง?": "คุณสามารถแจ้งเคลมประกันรถยนต์ผ่านแอปพลิเคชัน SE Life หรือโทร 123-456-789 ได้ตลอด 24 ชั่วโมง",
+    "มีโปรโมชั่นอะไรบ้าง?": "โปรโมชั่นล่าสุด ลดค่าเบี้ยประกันชีวิต 10% เมื่อลงทะเบียนผ่านออนไลน์วันนี้ถึง 30 มิ.ย. 2568"
+}
+
+def send_loading_indicator(user_id, duration=15):
+    import requests
+    headers = {
+        'Authorization': f'Bearer {os.getenv("LINE_CHANNEL_ACCESS_TOKEN")}',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "chatId": user_id,
+        "loadingSeconds": duration
+    }
+    requests.post('https://api.line.me/v2/bot/chat/loading/start', headers=headers, json=data)
 
 def process_message_batch(user_id):
 
@@ -138,6 +156,22 @@ def handle_message(event):
        threading.Thread(target=process_message_batch, args=(user_id,), daemon=True).start()
        
     mc_client.set(cache_key, pickle.dumps(buffer_data), MESSAGE_WINDOW+3)
+    
+@handler.add(FollowEvent)
+def handle_follow(event):
+    reply_token = event.reply_token
+    quick_reply_buttons = QuickReply(items=[
+        QuickReplyItem(action=MessageAction(label=faq, text=faq))
+        for faq in FAQ_CACHED_ANSWERS.keys()
+    ])
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=reply_token,
+                messages=[TextMessage(text="", quick_reply=quick_reply_buttons)]
+            )
+        )
     
 @app.route("/webhook", methods=['POST'])
 def webhook():

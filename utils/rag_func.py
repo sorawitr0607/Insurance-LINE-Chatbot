@@ -195,7 +195,7 @@ CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits this scenario, based on the Us
 
 Definitions and guidelines:
 
-2. CONTINUE CONVERSATION
+1. CONTINUE CONVERSATION
    - The user is clearly asking a follow-up question.
    - Or user references details that were already mentioned in the conversation history.
    - Example:
@@ -205,17 +205,17 @@ Definitions and guidelines:
        - If the conversation history included "I want to buy insurance. Do you have life coverage?" 
          and the new user query says "tell me more about the first one," then it's classify to CONTINUE CONVERSATION.
 
-3. INSURANCE_SERVICE
+2. INSURANCE_SERVICE
    - Specifically about insurance services such as "ติดต่อสอบถาม", "เอกสาร" , "โปรโมชั่น", "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า", etc.
 
-4. INSURANCE_PRODUCT
+3. INSURANCE_PRODUCT
    - The user wants to buy, see, or compare insurance products such as life insurance or auto insurance policies.
 
-5. MORE
+4. MORE
    - The user specifically asks for additional products or variations beyond what was previously discussed.
    - Common triggers might be phrases like "Show me more products" or "What else do you have?"
 
-6. OFF-TOPIC
+5. OFF-TOPIC
    - Anything not covered above, or the user’s query is irrelevant to insurance.
 
 Return ONLY one label. Do not add explanations.
