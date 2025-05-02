@@ -5,7 +5,7 @@ import pickle
 from dotenv import load_dotenv
 from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
-from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessageRequest,TextMessage, QuickReply, QuickReplyItem, MessageAction
+from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessageRequest,TextMessage #, QuickReply, QuickReplyItem, MessageAction
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent,TextMessageContent
 from datetime import datetime
@@ -71,42 +71,42 @@ def process_message_batch(user_id):
     user_query = " ".join(buffer_data['messages'])
     reply_token = buffer_data['reply_token']
     
-    if user_query in FAQ_CACHED_ANSWERS:
-        response = FAQ_CACHED_ANSWERS[user_query]
-    else:
-        chat_history,latest_decide, chat_user_latest = get_conversation_state(user_id)
-        #print(len(chat_history))
-        path_decision = decide_search_path(user_query,chat_history)
-        
-        # print(path_decision)
-        
-        
-        if path_decision == "INSURANCE_SERVICE":
-            # context = retrieve_insurance_service_context(user_query)
-            context = get_search_results(query=user_query, top_k=3, skip_k=0, service = True)
-        elif path_decision == "INSURANCE_PRODUCT":
-            # context = retrieve_context(user_query)
-            context = get_search_results(query=user_query, top_k=7, skip_k=0, service = False)
-        elif path_decision == "CONTINUE CONVERSATION":
-            # latest_decide = get_latest_decide(user_id)
-            # chat_user_latest = get_latest_user_history(user_id)
-            summary_context_search = summarize_context(user_query,chat_user_latest)
-            if latest_decide == "INSURANCE_SERVICE":
-                # context = retrieve_insurance_service_context(summary_context_search)
-                context = get_search_results(query=summary_context_search, top_k=3, skip_k=0, service = True)
-                path_decision = 'INSURANCE_SERVICE'
-            else:
-                # context = retrieve_context(summary_context_search)
-                context = get_search_results(query=summary_context_search, top_k=7, skip_k=0, service = False)
-                path_decision = 'INSURANCE_PRODUCT'
-        elif path_decision == "MORE":
-            # context = retrieve_context(user_query,10)
-            context = get_search_results(query=user_query, top_k=7, skip_k=7, service = False)
+    # if user_query in FAQ_CACHED_ANSWERS:
+    #     response = FAQ_CACHED_ANSWERS[user_query]
+    # else:
+    chat_history,latest_decide, chat_user_latest = get_conversation_state(user_id)
+    #print(len(chat_history))
+    path_decision = decide_search_path(user_query,chat_history)
+    
+    # print(path_decision)
+    
+    
+    if path_decision == "INSURANCE_SERVICE":
+        # context = retrieve_insurance_service_context(user_query)
+        context = get_search_results(query=user_query, top_k=3, skip_k=0, service = True)
+    elif path_decision == "INSURANCE_PRODUCT":
+        # context = retrieve_context(user_query)
+        context = get_search_results(query=user_query, top_k=7, skip_k=0, service = False)
+    elif path_decision == "CONTINUE CONVERSATION":
+        # latest_decide = get_latest_decide(user_id)
+        # chat_user_latest = get_latest_user_history(user_id)
+        summary_context_search = summarize_context(user_query,chat_user_latest)
+        if latest_decide == "INSURANCE_SERVICE":
+            # context = retrieve_insurance_service_context(summary_context_search)
+            context = get_search_results(query=summary_context_search, top_k=3, skip_k=0, service = True)
+            path_decision = 'INSURANCE_SERVICE'
         else:
-            chat_history = None
-            context = ""
-            
-        response = generate_answer(user_query, context, chat_history)
+            # context = retrieve_context(summary_context_search)
+            context = get_search_results(query=summary_context_search, top_k=7, skip_k=0, service = False)
+            path_decision = 'INSURANCE_PRODUCT'
+    elif path_decision == "MORE":
+        # context = retrieve_context(user_query,10)
+        context = get_search_results(query=user_query, top_k=7, skip_k=7, service = False)
+    else:
+        chat_history = None
+        context = ""
+        
+    response = generate_answer(user_query, context, chat_history)
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
@@ -143,24 +143,24 @@ def handle_message(event):
             )
         return
     
-    # Send Quick Replies immediately after first user interaction
-    quick_reply_buttons = QuickReply(items=[
-        QuickReplyItem(action=MessageAction(label=faq, text=faq))
-        for faq in FAQ_CACHED_ANSWERS.keys()
-    ])
+    # # Send Quick Replies immediately after first user interaction
+    # quick_reply_buttons = QuickReply(items=[
+    #     QuickReplyItem(action=MessageAction(label=faq, text=faq))
+    #     for faq in FAQ_CACHED_ANSWERS.keys()
+    # ])
 
-    minimal_prompt = "สอบถามเพิ่มเติม"  
+    # minimal_prompt = "สอบถามเพิ่มเติม"  
 
-    with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message_with_http_info(
-            ReplyMessageRequest(
-                reply_token=reply_token,
-                messages=[
-                    TextMessage(text=minimal_prompt, quick_reply=quick_reply_buttons)
-                ]
-            )
-        )
+    # with ApiClient(configuration) as api_client:
+    #     line_bot_api = MessagingApi(api_client)
+    #     line_bot_api.reply_message_with_http_info(
+    #         ReplyMessageRequest(
+    #             reply_token=reply_token,
+    #             messages=[
+    #                 TextMessage(text=minimal_prompt, quick_reply=quick_reply_buttons)
+    #             ]
+    #         )
+    #     )
     
     threading.Thread(target=send_loading_indicator, args=(user_id,20)).start()
     
