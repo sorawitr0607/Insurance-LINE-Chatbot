@@ -74,7 +74,7 @@ def build_quick_reply() -> QuickReply:
             image_url=url,
             action=MessageAction(label=label[:20], text=label)  # label ≤ 20 chars for LINE UI
         )
-        for label,url in FAQ_BUTTON_META.keys()
+        for label,url in FAQ_BUTTON_META.items()
     ]
     return QuickReply(items=items)
 
