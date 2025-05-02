@@ -270,7 +270,7 @@ def generate_answer(query, context, chat_history=None):
         "no provided context"
         "or user question is not related to insurance product/service, reply politely and very briefly (≤ 30 tokens)"
         "to say that you are uncertain or ask for clarification"
-        "Always respond in Thai unless absolutely necessary to reference specific names or URLs."
+        "If User Question is Thai Always respond in Thai unless absolutely necessary to reference specific names or URLs."
         "Respond concisely and not exceed 680 tokens")
         user_prompt = f"""
     Conversation History: {chat_history if chat_history else 'None'}

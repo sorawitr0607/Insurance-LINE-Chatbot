@@ -164,25 +164,6 @@ def handle_message(event):
             )
         return
     
-    # # Send Quick Replies immediately after first user interaction
-    # quick_reply_buttons = QuickReply(items=[
-    #     QuickReplyItem(action=MessageAction(label=faq, text=faq))
-    #     for faq in FAQ_CACHED_ANSWERS.keys()
-    # ])
-
-    # minimal_prompt = "สอบถามเพิ่มเติม"  
-
-    # with ApiClient(configuration) as api_client:
-    #     line_bot_api = MessagingApi(api_client)
-    #     line_bot_api.reply_message_with_http_info(
-    #         ReplyMessageRequest(
-    #             reply_token=reply_token,
-    #             messages=[
-    #                 TextMessage(text=minimal_prompt, quick_reply=quick_reply_buttons)
-    #             ]
-    #         )
-    #     )
-    
     threading.Thread(target=send_loading_indicator, args=(user_id,25)).start()
     
     cache_key = f"message_buffer:{user_id}"
