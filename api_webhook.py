@@ -1,4 +1,7 @@
 import os
+import time
+import threading
+import pickle
 from dotenv import load_dotenv
 from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
@@ -7,6 +10,8 @@ from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent,TextMessageContent
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import bmemcached
+
 
 # import sys
 # sys.path.append(r"D:\RAG\AZURE\New Deploy (2)\LINE_RAG_API-main (2)\LINE_RAG_API-main")
@@ -21,35 +26,33 @@ app = Flask(__name__)
 configuration = Configuration(access_token=os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-@app.route("/webhook", methods=['POST'])
-def webhook():
-    signature = request.headers['X-Line-Signature']
-    body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        app.logger.info("Invalid signature. Please check your channel access token/channel secret.")
-        abort(400)
+memcached_endpoint = os.getenv("MEMCACHED_ENDPOINT")
+memcached_port = os.getenv("MEMCACHED_PORT")
+memcached_username = os.getenv("MEMCACHED_USERNAME")
+memcached_password = os.getenv("MEMCACHED_PASSWORD")
+  
 
-    return 'OK'
+mc_client = bmemcached.Client(
+    (f"{memcached_endpoint}:{memcached_port}",), 
+    memcached_username,
+    memcached_password             
+)
 
-@handler.add(MessageEvent, message=TextMessageContent)
-def handle_message(event):
-    user_query = event.message.text
-    user_id = event.source.user_id
-    
-    if user_query == "CHAT RESET":
-        del_chat_history(user_id)
-        with ApiClient(configuration) as api_client:
-            line_bot_api = MessagingApi(api_client)
-            line_bot_api.reply_message_with_http_info(
-                ReplyMessageRequest(
-                    reply_token=event.reply_token,
-                    messages=[TextMessage(text="แชทของคุณถูกรีเซ็ตเรียบร้อยแล้ว")]
-                )
-            )
+MESSAGE_WINDOW = 2
+
+def process_message_batch(user_id):
+
+    time.sleep(MESSAGE_WINDOW)
+    cache_key = f"message_buffer:{user_id}"
+    cached_data = mc_client.get(cache_key)
+
+    if not cached_data:
         return
+
+    buffer_data = pickle.loads(cached_data)
+    user_query = " ".join(buffer_data['messages'])
+    reply_token = buffer_data['reply_token']
+    
     
     chat_history,latest_decide, chat_user_latest = get_conversation_state(user_id)
     #print(len(chat_history))
@@ -57,8 +60,6 @@ def handle_message(event):
     
     # print(path_decision)
     
-    
-
     
     if path_decision == "INSURANCE_SERVICE":
         # context = retrieve_insurance_service_context(user_query)
@@ -91,7 +92,7 @@ def handle_message(event):
         line_bot_api = MessagingApi(api_client)
         line_bot_api.reply_message_with_http_info(
             ReplyMessageRequest(
-                reply_token=event.reply_token,
+                reply_token=reply_token,
                 messages=[TextMessage(text=response)]
             )
         )
@@ -100,6 +101,56 @@ def handle_message(event):
     save_chat_history(user_id, "user", user_query, timestamp,path_decision)
     timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
     save_chat_history(user_id, "assistant", response, timestamp,path_decision)
+    
+    # Clear buffer
+    mc_client.delete(cache_key)
+
+@handler.add(MessageEvent, message=TextMessageContent)
+def handle_message(event):
+    user_id = event.source.user_id
+    message_text = event.message.text
+    reply_token = event.reply_token
+    
+    if message_text == "CHAT RESET":
+        del_chat_history(user_id)
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text="แชทของคุณถูกรีเซ็ตเรียบร้อยแล้ว")]
+                )
+            )
+        return
+    
+    cache_key = f"message_buffer:{user_id}"
+    cached_data = mc_client.get(cache_key)
+    
+    if cached_data:
+       buffer_data = pickle.loads(cached_data)
+       buffer_data['messages'].append(message_text)
+       buffer_data['reply_token'] = reply_token  # latest reply token
+    else:
+       buffer_data = {
+           'messages': [message_text],
+           'reply_token': reply_token
+       }
+       threading.Thread(target=process_message_batch, args=(user_id,), daemon=True).start()
+       
+    mc_client.set(cache_key, pickle.dumps(buffer_data), MESSAGE_WINDOW+3)
+    
+@app.route("/webhook", methods=['POST'])
+def webhook():
+    signature = request.headers['X-Line-Signature']
+    body = request.get_data(as_text=True)
+    app.logger.info("Request body: " + body)
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        app.logger.info("Invalid signature. Please check your channel access token/channel secret.")
+        abort(400)
+
+    return 'OK'
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
