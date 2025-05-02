@@ -7,7 +7,7 @@ from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessageRequest,TextMessage, QuickReply, QuickReplyItem, MessageAction
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks import MessageEvent,TextMessageContent, FollowEvent
+from linebot.v3.webhooks import MessageEvent,TextMessageContent
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import bmemcached
@@ -149,7 +149,7 @@ def handle_message(event):
         for faq in FAQ_CACHED_ANSWERS.keys()
     ])
 
-    minimal_prompt = " "  
+    minimal_prompt = "สอบถามเพิ่มเติม"  
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
@@ -180,21 +180,6 @@ def handle_message(event):
        
     mc_client.set(cache_key, pickle.dumps(buffer_data), MESSAGE_WINDOW+3)
     
-@handler.add(FollowEvent)
-def handle_follow(event):
-    reply_token = event.reply_token
-    quick_reply_buttons = QuickReply(items=[
-        QuickReplyItem(action=MessageAction(label=faq, text=faq))
-        for faq in FAQ_CACHED_ANSWERS.keys()
-    ])
-    with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message_with_http_info(
-            ReplyMessageRequest(
-                reply_token=reply_token,
-                messages=[TextMessage(text="", quick_reply=quick_reply_buttons)]
-            )
-        )
     
 @app.route("/webhook", methods=['POST'])
 def webhook():
