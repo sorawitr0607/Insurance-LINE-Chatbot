@@ -5,7 +5,7 @@ import pickle
 from dotenv import load_dotenv
 from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
-from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessageRequest,TextMessage #, QuickReply, QuickReplyItem, MessageAction
+from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessageRequest,TextMessage ,QuickReply, QuickReplyItem, MessageAction
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent,TextMessageContent
 from datetime import datetime
@@ -40,11 +40,10 @@ mc_client = bmemcached.Client(
 
 MESSAGE_WINDOW = 2
 
-# FAQ_CACHED_ANSWERS = {
-#     "ประกันชีวิตมีกี่แบบ?": "ประกันชีวิตหลักๆ มีแบบตลอดชีพ แบบสะสมทรัพย์ แบบบำนาญ และแบบชั่วระยะเวลา รายละเอียดเพิ่มเติมที่เว็บไซต์...",
-#     "เคลมประกันรถยนต์ยังไง?": "คุณสามารถแจ้งเคลมประกันรถยนต์ผ่านแอปพลิเคชัน SE Life หรือโทร 123-456-789 ได้ตลอด 24 ชั่วโมง",
-#     "มีโปรโมชั่นอะไรบ้าง?": "โปรโมชั่นล่าสุด ลดค่าเบี้ยประกันชีวิต 10% เมื่อลงทะเบียนผ่านออนไลน์วันนี้ถึง 30 มิ.ย. 2568"
-# }
+FAQ_CACHED_ANSWERS = {
+    "ติดต่อศูนย์ดูแลลูกค้า": " Se Life : 02-255-5656 , Insure : 02-636-5656  จันทร์ - ศุกร์ 08.30 - 17.00 น"
+}
+
 
 def send_loading_indicator(user_id, duration=25):
     import requests
@@ -57,6 +56,16 @@ def send_loading_indicator(user_id, duration=25):
         "loadingSeconds": duration
     }
     requests.post('https://api.line.me/v2/bot/chat/loading/start', headers=headers, json=data)
+    
+def build_quick_reply() -> QuickReply:
+    """Construct the QuickReply bar for every outgoing message."""
+    items = [
+        QuickReplyItem(
+            action=MessageAction(label=label[:20], text=label)  # label ≤ 20 chars for LINE UI
+        )
+        for label in FAQ_CACHED_ANSWERS.keys()
+    ]
+    return QuickReply(items=items)
 
 def process_message_batch(user_id):
 
@@ -71,49 +80,50 @@ def process_message_batch(user_id):
     user_query = " ".join(buffer_data['messages'])
     reply_token = buffer_data['reply_token']
     
-    # if user_query in FAQ_CACHED_ANSWERS:
-    #     response = FAQ_CACHED_ANSWERS[user_query]
-    # else:
-    chat_history,latest_decide, chat_user_latest = get_conversation_state(user_id)
-    #print(len(chat_history))
-    path_decision = decide_search_path(user_query,chat_history)
-    
-    # print(path_decision)
-    
-    
-    if path_decision == "INSURANCE_SERVICE":
-        # context = retrieve_insurance_service_context(user_query)
-        context = get_search_results(query=user_query, top_k=3, skip_k=0, service = True)
-    elif path_decision == "INSURANCE_PRODUCT":
-        # context = retrieve_context(user_query)
-        context = get_search_results(query=user_query, top_k=7, skip_k=0, service = False)
-    elif path_decision == "CONTINUE CONVERSATION":
-        # latest_decide = get_latest_decide(user_id)
-        # chat_user_latest = get_latest_user_history(user_id)
-        summary_context_search = summarize_context(user_query,chat_user_latest)
-        if latest_decide == "INSURANCE_SERVICE":
-            # context = retrieve_insurance_service_context(summary_context_search)
-            context = get_search_results(query=summary_context_search, top_k=3, skip_k=0, service = True)
-            path_decision = 'INSURANCE_SERVICE'
-        else:
-            # context = retrieve_context(summary_context_search)
-            context = get_search_results(query=summary_context_search, top_k=7, skip_k=0, service = False)
-            path_decision = 'INSURANCE_PRODUCT'
-    elif path_decision == "MORE":
-        # context = retrieve_context(user_query,10)
-        context = get_search_results(query=user_query, top_k=7, skip_k=7, service = False)
+    if user_query in FAQ_CACHED_ANSWERS:
+        response = FAQ_CACHED_ANSWERS[user_query]
+        path_decision = 'OFF-TOPIC'
     else:
-        chat_history = None
-        context = ""
+        chat_history,latest_decide, chat_user_latest = get_conversation_state(user_id)
+        #print(len(chat_history))
+        path_decision = decide_search_path(user_query,chat_history)
         
-    response = generate_answer(user_query, context, chat_history)
+        # print(path_decision)
+        
+        
+        if path_decision == "INSURANCE_SERVICE":
+            # context = retrieve_insurance_service_context(user_query)
+            context = get_search_results(query=user_query, top_k=3, skip_k=0, service = True)
+        elif path_decision == "INSURANCE_PRODUCT":
+            # context = retrieve_context(user_query)
+            context = get_search_results(query=user_query, top_k=7, skip_k=0, service = False)
+        elif path_decision == "CONTINUE CONVERSATION":
+            # latest_decide = get_latest_decide(user_id)
+            # chat_user_latest = get_latest_user_history(user_id)
+            summary_context_search = summarize_context(user_query,chat_user_latest)
+            if latest_decide == "INSURANCE_SERVICE":
+                # context = retrieve_insurance_service_context(summary_context_search)
+                context = get_search_results(query=summary_context_search, top_k=3, skip_k=0, service = True)
+                path_decision = 'INSURANCE_SERVICE'
+            else:
+                # context = retrieve_context(summary_context_search)
+                context = get_search_results(query=summary_context_search, top_k=7, skip_k=0, service = False)
+                path_decision = 'INSURANCE_PRODUCT'
+        elif path_decision == "MORE":
+            # context = retrieve_context(user_query,10)
+            context = get_search_results(query=user_query, top_k=7, skip_k=7, service = False)
+        else:
+            chat_history = None
+            context = ""
+        
+        response = generate_answer(user_query, context, chat_history)
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
         line_bot_api.reply_message_with_http_info(
             ReplyMessageRequest(
                 reply_token=reply_token,
-                messages=[TextMessage(text=response)]
+                messages=[TextMessage(text=response, quickReply=build_quick_reply())]
             )
         )
 
