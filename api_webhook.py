@@ -67,16 +67,14 @@ FAQ_BUTTON_META = {
     "Line Thai Group" : "https://raw.githubusercontent.com/sorawitr0607/LINE_RAG_API/main/icon_pic/line_icon.png"
 }
     
-def build_quick_reply() -> QuickReply:
-    """Construct the QuickReply bar for every outgoing message."""
+FAQ_QUICK_REPLY = QuickReply(
     items = [
         QuickReplyItem(
             image_url=url,
             action=MessageAction(label=label[:20], text=label)  # label ≤ 20 chars for LINE UI
         )
         for label,url in FAQ_BUTTON_META.items()
-    ]
-    return QuickReply(items=items)
+    ])
 
 def process_message_batch(user_id):
 
@@ -134,7 +132,7 @@ def process_message_batch(user_id):
         line_bot_api.reply_message_with_http_info(
             ReplyMessageRequest(
                 reply_token=reply_token,
-                messages=[TextMessage(text=response, quickReply=build_quick_reply())]
+                messages=[TextMessage(text=response, quickReply=FAQ_QUICK_REPLY)]
             )
         )
 
