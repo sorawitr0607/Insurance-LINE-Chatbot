@@ -60,13 +60,21 @@ def send_loading_indicator(user_id, duration=25):
     }
     requests.post('https://api.line.me/v2/bot/chat/loading/start', headers=headers, json=data)
     
+FAQ_BUTTON_META = {
+    "ศูนย์ดูแลลูกค้า": "https://raw.githubusercontent.com/sorawitr0607/LINE_RAG_API/main/icon_pic/customer_service.png",
+    "โปรโมชั่น SE Life" : "https://raw.githubusercontent.com/sorawitr0607/LINE_RAG_API/main/icon_pic/selife_icon.png",
+    "โปรโมชั่น IN-SURE" : "https://raw.githubusercontent.com/sorawitr0607/LINE_RAG_API/main/icon_pic/insure_icon.png",
+    "Line Thai Group" : "https://raw.githubusercontent.com/sorawitr0607/LINE_RAG_API/main/icon_pic/line_icon.png"
+}
+    
 def build_quick_reply() -> QuickReply:
     """Construct the QuickReply bar for every outgoing message."""
     items = [
         QuickReplyItem(
+            image_url=url,
             action=MessageAction(label=label[:20], text=label)  # label ≤ 20 chars for LINE UI
         )
-        for label in FAQ_CACHED_ANSWERS.keys()
+        for label,url in FAQ_BUTTON_META.keys()
     ]
     return QuickReply(items=items)
 
