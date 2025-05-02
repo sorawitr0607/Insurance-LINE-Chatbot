@@ -40,13 +40,13 @@ mc_client = bmemcached.Client(
 
 MESSAGE_WINDOW = 2
 
-FAQ_CACHED_ANSWERS = {
-    "ประกันชีวิตมีกี่แบบ?": "ประกันชีวิตหลักๆ มีแบบตลอดชีพ แบบสะสมทรัพย์ แบบบำนาญ และแบบชั่วระยะเวลา รายละเอียดเพิ่มเติมที่เว็บไซต์...",
-    "เคลมประกันรถยนต์ยังไง?": "คุณสามารถแจ้งเคลมประกันรถยนต์ผ่านแอปพลิเคชัน SE Life หรือโทร 123-456-789 ได้ตลอด 24 ชั่วโมง",
-    "มีโปรโมชั่นอะไรบ้าง?": "โปรโมชั่นล่าสุด ลดค่าเบี้ยประกันชีวิต 10% เมื่อลงทะเบียนผ่านออนไลน์วันนี้ถึง 30 มิ.ย. 2568"
-}
+# FAQ_CACHED_ANSWERS = {
+#     "ประกันชีวิตมีกี่แบบ?": "ประกันชีวิตหลักๆ มีแบบตลอดชีพ แบบสะสมทรัพย์ แบบบำนาญ และแบบชั่วระยะเวลา รายละเอียดเพิ่มเติมที่เว็บไซต์...",
+#     "เคลมประกันรถยนต์ยังไง?": "คุณสามารถแจ้งเคลมประกันรถยนต์ผ่านแอปพลิเคชัน SE Life หรือโทร 123-456-789 ได้ตลอด 24 ชั่วโมง",
+#     "มีโปรโมชั่นอะไรบ้าง?": "โปรโมชั่นล่าสุด ลดค่าเบี้ยประกันชีวิต 10% เมื่อลงทะเบียนผ่านออนไลน์วันนี้ถึง 30 มิ.ย. 2568"
+# }
 
-def send_loading_indicator(user_id, duration=20):
+def send_loading_indicator(user_id, duration=25):
     import requests
     headers = {
         'Authorization': f'Bearer {os.getenv("LINE_CHANNEL_ACCESS_TOKEN")}',
@@ -162,7 +162,7 @@ def handle_message(event):
     #         )
     #     )
     
-    threading.Thread(target=send_loading_indicator, args=(user_id,20)).start()
+    threading.Thread(target=send_loading_indicator, args=(user_id,25)).start()
     
     cache_key = f"message_buffer:{user_id}"
     cached_data = mc_client.get(cache_key)
