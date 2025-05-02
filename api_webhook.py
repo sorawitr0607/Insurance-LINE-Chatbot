@@ -2,12 +2,17 @@ import os
 import time
 import threading
 import pickle
+import logging
 from dotenv import load_dotenv
 from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
-from linebot.v3.messaging import Configuration,ApiClient,MessagingApi,ReplyMessageRequest,TextMessage ,QuickReply, QuickReplyItem, MessageAction
+from linebot.v3.messaging import (
+    Configuration, ApiClient, MessagingApi,
+    ReplyMessageRequest, TextMessage,
+    QuickReply, QuickReplyItem, MessageAction
+)
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks import MessageEvent,TextMessageContent
+from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import bmemcached
@@ -16,10 +21,17 @@ import bmemcached
 # import sys
 # sys.path.append(r"D:\RAG\AZURE\New Deploy (2)\LINE_RAG_API-main (2)\LINE_RAG_API-main")
 
-from utils.chat_history_func import get_conversation_state,del_chat_history,save_chat_history  #get_chat_history,get_latest_decide,get_latest_user_history
-from utils.rag_func import decide_search_path,generate_answer,summarize_context,get_search_results #,retrieve_insurance_service_context,retrieve_context
+from utils.chat_history_func import (
+    get_conversation_state, del_chat_history, save_chat_history
+)
+from utils.rag_func import (
+    decide_search_path, generate_answer, summarize_context, get_search_results
+)
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("api_webhook")
 
 # LINE API
 app = Flask(__name__)
@@ -46,20 +58,7 @@ FAQ_CACHED_ANSWERS = {
     "โปรโมชั่น IN-SURE" : "สิทธิพิเศษสำหรับลูกค้า IN-SURE อินทรประกันภัย รับฟรีเครื่องดื่มพันธุ์ไทย 1 แก้ว เมื่อแจ้งเคลมประกันรถยนต์ (เคลมแห้ง) สะดวกทุกที่ ทุกเวลา ผ่านไลน์ THAI GROUP \n ดูข้อมูลเพิ่มเติมได้ที่ https://www.indara.co.th/promotion/panthai-insurance-claim-line",
     "Line Thai Group" : "ที่เดียวจบ ครบทุกบริการของอาคเนย์ประกันชีวิต เช่น ดูข้อมูลประกัน แก้ไขข้อมูลกรมธรรม์ หรือ แจ้งเคลมประกัน \n เป็นเพื่อนกับ Thai Group ได้เลยที่นี่ https://lin.ee/OGWXtpN "
 }
-
-
-def send_loading_indicator(user_id, duration=25):
-    import requests
-    headers = {
-        'Authorization': f'Bearer {os.getenv("LINE_CHANNEL_ACCESS_TOKEN")}',
-        'Content-Type': 'application/json'
-    }
-    data = {
-        "chatId": user_id,
-        "loadingSeconds": duration
-    }
-    requests.post('https://api.line.me/v2/bot/chat/loading/start', headers=headers, json=data)
-    
+   
 FAQ_BUTTON_META = {
     "ศูนย์ดูแลลูกค้า": "https://raw.githubusercontent.com/sorawitr0607/LINE_RAG_API/main/icon_pic/customer_service.png",
     "โปรโมชั่น SE Life" : "https://raw.githubusercontent.com/sorawitr0607/LINE_RAG_API/main/icon_pic/selife_icon.png",
@@ -75,6 +74,42 @@ FAQ_QUICK_REPLY = QuickReply(
         )
         for label,url in FAQ_BUTTON_META.items()
     ])
+
+def safe_reply(
+    line_bot_api: MessagingApi,
+    reply_token: str,
+    messages: list[TextMessage],
+    *,
+    fallback_text: str = "ขออภัย ระบบขัดข้อง กรุณาลองใหม่อีกครั้งนะครับ 🙏"
+):
+
+    try:
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(reply_token=reply_token, messages=messages)
+        )
+    except Exception as exc:
+        logger.exception("LINE reply failed", exc_info=exc)
+        try:
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text=fallback_text)]
+                )
+            )
+        except Exception:
+            logger.error("Fallback LINE reply also failed.", exc_info=True)
+            
+def send_loading_indicator(user_id, duration=25):
+    import requests
+    headers = {
+        'Authorization': f'Bearer {os.getenv("LINE_CHANNEL_ACCESS_TOKEN")}',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "chatId": user_id,
+        "loadingSeconds": duration
+    }
+    requests.post('https://api.line.me/v2/bot/chat/loading/start', headers=headers, json=data)
 
 def process_message_batch(user_id):
 
@@ -101,25 +136,18 @@ def process_message_batch(user_id):
         
         
         if path_decision == "INSURANCE_SERVICE":
-            # context = retrieve_insurance_service_context(user_query)
             context = get_search_results(query=user_query, top_k=3, skip_k=0, service = True)
         elif path_decision == "INSURANCE_PRODUCT":
-            # context = retrieve_context(user_query)
             context = get_search_results(query=user_query, top_k=7, skip_k=0, service = False)
         elif path_decision == "CONTINUE CONVERSATION":
-            # latest_decide = get_latest_decide(user_id)
-            # chat_user_latest = get_latest_user_history(user_id)
             summary_context_search = summarize_context(user_query,chat_user_latest)
             if latest_decide == "INSURANCE_SERVICE":
-                # context = retrieve_insurance_service_context(summary_context_search)
                 context = get_search_results(query=summary_context_search, top_k=3, skip_k=0, service = True)
                 path_decision = 'INSURANCE_SERVICE'
             else:
-                # context = retrieve_context(summary_context_search)
                 context = get_search_results(query=summary_context_search, top_k=7, skip_k=0, service = False)
                 path_decision = 'INSURANCE_PRODUCT'
         elif path_decision == "MORE":
-            # context = retrieve_context(user_query,10)
             context = get_search_results(query=user_query, top_k=7, skip_k=7, service = False)
         else:
             chat_history = None
@@ -129,11 +157,10 @@ def process_message_batch(user_id):
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message_with_http_info(
-            ReplyMessageRequest(
-                reply_token=reply_token,
-                messages=[TextMessage(text=response, quickReply=FAQ_QUICK_REPLY)]
-            )
+        safe_reply(                                         
+            line_bot_api,
+            reply_token,
+            [TextMessage(text=response, quickReply=FAQ_QUICK_REPLY)]
         )
 
     timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
@@ -154,11 +181,10 @@ def handle_message(event):
         del_chat_history(user_id)
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
-            line_bot_api.reply_message_with_http_info(
-                ReplyMessageRequest(
-                    reply_token=reply_token,
-                    messages=[TextMessage(text="แชทของคุณถูกรีเซ็ตเรียบร้อยแล้ว")]
-                )
+            safe_reply(                                     
+                line_bot_api,
+                reply_token,
+                [TextMessage(text="แชทของคุณถูกรีเซ็ตเรียบร้อยแล้ว")]
             )
         return
     
