@@ -25,7 +25,7 @@ client = OpenAI(
 )
 
 client_chat = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
+    api_key=os.getenv("TYPHOON_API_KEY"),
     base_url="https://api.opentyphoon.ai/v1"
 )
 
