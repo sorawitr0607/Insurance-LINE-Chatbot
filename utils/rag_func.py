@@ -16,12 +16,17 @@ load_dotenv()
 
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
-chat_model = os.getenv("OPENAI_CHAT_MODEL")
-classify_model = os.getenv("OPENAI_CLASSIFY_MODEL")
+chat_model = os.getenv("TYPHOON_CHAT_MODEL")
+classify_model = os.getenv("TYPHOON_CHAT_MODEL")
 
 
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
+)
+
+client_chat = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url="https://api.opentyphoon.ai/v1"
 )
 
 # Azure AI Search setup
@@ -121,7 +126,7 @@ def summarize_text(text, max_chars, user_id):
         return text
     
     system_prompt = "You are a helpful assistant. Condense the user's conversation by selectively removing less important or redundant information. Prioritize preserving numeric details, specific names, exact wording, key facts, and recent messages. Avoid overly summarizing; keep the original details intact.,Respond concisely and not exceed 1000 tokens."
-    response = client.chat.completions.create(
+    response = client_chat.chat.completions.create(
         model=chat_model,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -164,7 +169,7 @@ def summarize_context(new_question,chat_history):
     - Keep the summary concise but complete enough for follow-up vector-based retrieval.
     
     """.strip()
-    response = client.chat.completions.create(
+    response = client_chat.chat.completions.create(
         model=chat_model,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -217,7 +222,7 @@ User Query: {user_query}
 Conversation History: {chat_history if chat_history else 'None'}
 """
 
-    response = client.chat.completions.create(
+    response = client_chat.chat.completions.create(
         model=classify_model,
         messages=[
             {
@@ -268,7 +273,7 @@ def generate_answer(query, context, chat_history=None):
     Context: {context}
     User Question: {query} """
 
-        response = client.chat.completions.create(
+        response = client_chat.chat.completions.create(
             model=chat_model,
             messages=[{"role": "system", "content": prompt},
             {"role": "user", "content": user_prompt}],
