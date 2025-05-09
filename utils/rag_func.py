@@ -140,9 +140,9 @@ def summarize_text(text, max_chars, user_id):
     )
     summary = response.choices[0].message.content.strip()
     timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
-    from utils.chat_history_func import save_chat_history,del_chat_history,get_latest_decide
+    from utils.chat_history_func import save_chat_history,del_chat_history,get_conversation_state
     del_chat_history(user_id)
-    user_latest_decide = get_latest_decide(user_id)
+    summary, user_latest_decide, latest_user_history = get_conversation_state(user_id)
     save_chat_history(user_id, "assistant", summary, timestamp,user_latest_decide)
     return summary
 
