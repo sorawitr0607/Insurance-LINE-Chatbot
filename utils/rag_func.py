@@ -18,14 +18,17 @@ load_dotenv()
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
 chat_model = os.getenv("TYPHOON_CHAT_MODEL")
 classify_model = os.getenv("TYPHOON_CHAT_MODEL")
+summary_model = os.getenv("OPENAI_CHAT_MODEL")
+openai_api = os.getenv("OPENAI_API_KEY")
+typhoon_api = os.getenv("TYPHOON_API_KEY")
 
 
 client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
+    api_key=openai_api,
 )
 
 client_chat = OpenAI(
-    api_key=os.getenv("TYPHOON_API_KEY"),
+    api_key=typhoon_api,
     base_url="https://api.opentyphoon.ai/v1"
 )
 
@@ -126,8 +129,8 @@ def summarize_text(text, max_chars, user_id):
         return text
     
     system_prompt = "You are a helpful assistant. Condense the user's conversation by selectively removing less important or redundant information. Prioritize preserving numeric details, specific names, exact wording, key facts, and recent messages. Avoid overly summarizing; keep the original details intact.,Respond concisely and not exceed 1000 tokens."
-    response = client_chat.chat.completions.create(
-        model=chat_model,
+    response = client.chat.completions.create(
+        model=summary_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": text}
@@ -169,8 +172,8 @@ def summarize_context(new_question,chat_history):
     - Keep the summary concise but complete enough for follow-up vector-based retrieval.
     
     """.strip()
-    response = client_chat.chat.completions.create(
-        model=chat_model,
+    response = client.chat.completions.create(
+        model=summary_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": text}
