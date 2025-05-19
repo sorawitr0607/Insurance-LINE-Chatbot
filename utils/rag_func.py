@@ -11,9 +11,6 @@ import hashlib
 
 load_dotenv()
 
-
-
-
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
 chat_model = os.getenv("TYPHOON_CHAT_MODEL")
@@ -47,6 +44,28 @@ service_search_client = SearchClient(
 
 EMBED_CACHE_TTL = int(24 * 3600)
 SEARCH_CACHE_TTL = int(3600)
+
+# Rate limiter for Typhoon chat
+class RateLimiter:
+    def __init__(self, max_calls: int, period: float):
+        self.max_calls = max_calls
+        self.period = period
+        self.lock = threading.Lock()
+        self.calls = []  # timestamps
+
+    def acquire(self):
+        with self.lock:
+            now = time.time()
+            # drop stale entries
+            self.calls = [t for t in self.calls if t > now - self.period]
+            if len(self.calls) >= self.max_calls:
+                to_wait = self.period - (now - self.calls[0])
+                time.sleep(to_wait)
+            self.calls.append(time.time())
+
+# enforce both per-second and per-minute limits
+chat_limiter_sec = RateLimiter(5, 1)
+chat_limiter_min = RateLimiter(200, 60)
          
 
 def embed_text(text: str):
@@ -224,7 +243,9 @@ Return ONLY one label. Do not add explanations.
 User Query: {user_query}
 Conversation History: {chat_history if chat_history else 'None'}
 """
-
+# apply rate limits
+    chat_limiter_sec.acquire()
+    chat_limiter_min.acquire()
     response = client_chat.chat.completions.create(
         model=classify_model,
         messages=[
@@ -244,20 +265,7 @@ Conversation History: {chat_history if chat_history else 'None'}
 
     # Extract classification
     path_decision = response.choices[0].message.content.strip().upper()
-
-    valid_categories = [
-        "INSURANCE_SERVICE",
-        "INSURANCE_PRODUCT",
-        "CONTINUE CONVERSATION",
-        "MORE",
-        "OFF-TOPIC"
-    ]
-
-    # Validate output
-    if path_decision not in valid_categories:
-        path_decision = "OFF-TOPIC"
-
-    return path_decision
+    return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
 
 def generate_answer(query, context, chat_history=None):
@@ -277,7 +285,9 @@ def generate_answer(query, context, chat_history=None):
     Conversation History: {chat_history if chat_history else 'None'}
     Context: {context}
     User Question: {query} """
-
+        # apply rate limits
+        chat_limiter_sec.acquire()
+        chat_limiter_min.acquire()
         response = client_chat.chat.completions.create(
             model=chat_model,
             messages=[{"role": "system", "content": prompt},
