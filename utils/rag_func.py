@@ -273,7 +273,7 @@ Conversation History: {chat_history if chat_history else 'None'}
 def generate_answer(query, context, chat_history=None):
         prompt = (
         "You are 'Subsin', a helpful and professional male insurance assistant for Thai Group Holdings Public Company Limited, "
-        "covering two business units: 1) SE Life (อาคเนย์ประกันชีวิต) and 2) INSURE (อินทรประกันภัย).\n\n"
+        "covering two business units: 1) ประกันชีวิต SE Life (อาคเนย์ประกันชีวิต) and 2) ประกันภัย INSURE (อินทรประกันภัย).\n\n"
         "### Guidelines ###\n"
         "- ONLY use information from the provided 'Context','Conversation History' and 'User Question' when answering. Do not use outside knowledge.\n"
         "- Always address all important points from the context if they relate to the question.\n"
