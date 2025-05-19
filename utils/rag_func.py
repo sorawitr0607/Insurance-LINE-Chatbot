@@ -16,7 +16,7 @@ load_dotenv()
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
 chat_model = os.getenv("TYPHOON_CHAT_MODEL")
-classify_model = os.getenv("TYPHOON_CHAT_MODEL")
+classify_model = os.getenv("OPENAI_CHAT_MODEL")
 summary_model = os.getenv("OPENAI_CHAT_MODEL")
 openai_api = os.getenv("OPENAI_API_KEY")
 typhoon_api = os.getenv("TYPHOON_API_KEY")
@@ -248,7 +248,7 @@ Conversation History: {chat_history if chat_history else 'None'}
 # apply rate limits
     chat_limiter_sec.acquire()
     chat_limiter_min.acquire()
-    response = client_chat.chat.completions.create(
+    response = client.chat.completions.create(
         model=classify_model,
         messages=[
             {
