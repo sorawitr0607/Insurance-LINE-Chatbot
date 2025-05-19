@@ -1,6 +1,8 @@
 from openai import OpenAI
 import os
 import pickle
+import threading
+import time
 from dotenv import load_dotenv
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
