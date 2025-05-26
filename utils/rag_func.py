@@ -42,6 +42,11 @@ DEFAULT_SAFETY_SETTINGS = {
     types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
 }
 
+safety_settings_list = [
+    types.SafetySetting(category=category, threshold=threshold)
+    for category, threshold in DEFAULT_SAFETY_SETTINGS.items()
+]
+
 # Configuration for Gemini API calls
 classify_instruc = """You are a highly accurate text classification model.
 Determine which single label (from the set: INSURANCE_SERVICE, INSURANCE_PRODUCT,
@@ -71,7 +76,7 @@ generation_config_classify = types.GenerateContentConfig(
     temperature=0.3,
     max_output_tokens=20, # Slightly more buffer for classification labels
     system_instruction=classify_instruc,
-    safety_settings=DEFAULT_SAFETY_SETTINGS
+    safety_settings=safety_settings_list
 )
 
 answer_instruc = ("You are 'Subsin', a helpful and professional male insurance assistant for Thai Group Holdings Public Company Limited, "
@@ -89,7 +94,7 @@ generation_config_answer = types.GenerateContentConfig(
     temperature=0.7,
     max_output_tokens=700,
     system_instruction=answer_instruc,
-    safety_settings=DEFAULT_SAFETY_SETTINGS
+    safety_settings=safety_settings_list
 )
 
 # Azure AI Search setup
