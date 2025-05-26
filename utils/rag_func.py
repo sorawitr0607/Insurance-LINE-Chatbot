@@ -324,11 +324,12 @@ def generate_answer(query, context, chat_history=None):
                      raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
                      return raw_response
                 
-        raw_response = response.text.strip()
+        return raw_response = response.text.strip()
 
 
     except Exception as e:
         print(f"Error during Gemini answer generation API call: {e}")
+        raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้ในขณะนี้ โปรดลองอีกครั้ง"
+        return raw_response
         # raw_response remains the default error message
 
-    return raw_response
