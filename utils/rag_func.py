@@ -74,7 +74,7 @@ Return ONLY one label. Do not add explanations.
 """
 generation_config_classify = types.GenerateContentConfig(
     temperature=0.3,
-    max_output_tokens=20, # Slightly more buffer for classification labels
+    #max_output_tokens=50, # Slightly more buffer for classification labels
     system_instruction=classify_instruc
 )
 
@@ -91,7 +91,7 @@ answer_instruc = ("You are 'Subsin', a helpful and professional male insurance a
         "Now, answer the User Question based on the Conversation History and the provided Context.")
 generation_config_answer = types.GenerateContentConfig(
     temperature=0.7,
-    max_output_tokens=700,
+    #max_output_tokens=1000,
     system_instruction=answer_instruc,
     safety_settings=safety_settings_list
 )
@@ -284,9 +284,6 @@ Conversation History: {chat_history if chat_history else 'None'}
             contents = prompt_content,
             config=generation_config_classify
         )
-    if response.prompt_feedback and response.prompt_feedback.block_reason:
-        print(f"Warning: Prompt was blocked in decide_search_path. Reason: {response.prompt_feedback.block_reason}")
-        return "OFF-TOPIC" # Or handle as appropriate
 
     if not response.candidates or not response.text: # Check if .text is None or empty
         print("Warning: No text returned from Gemini in decide_search_path.")
