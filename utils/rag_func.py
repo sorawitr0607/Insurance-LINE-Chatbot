@@ -90,17 +90,6 @@ generation_config_answer = types.GenerateContentConfig(
     system_instruction=answer_instruc
 )
 
-# Initialize Gemini Model with safety settings
-gemini_model_name = "models/gemini-2.5-flash-preview-05-20"
-gemini_chat_model = genai.GenerativeModel(
-    gemini_model_name,
-    safety_settings=DEFAULT_SAFETY_SETTINGS
-)
-gemini_classify_model = genai.GenerativeModel(
-    gemini_model_name,
-    safety_settings=DEFAULT_SAFETY_SETTINGS
-)
-
 # Azure AI Search setup
 search_client = SearchClient(
     endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
