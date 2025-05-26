@@ -70,7 +70,8 @@ Return ONLY one label. Do not add explanations.
 generation_config_classify = types.GenerateContentConfig(
     temperature=0.3,
     max_output_tokens=20, # Slightly more buffer for classification labels
-    system_instruction=classify_instruc
+    system_instruction=classify_instruc,
+    safety_settings=DEFAULT_SAFETY_SETTINGS
 )
 
 answer_instruc = ("You are 'Subsin', a helpful and professional male insurance assistant for Thai Group Holdings Public Company Limited, "
@@ -87,7 +88,8 @@ answer_instruc = ("You are 'Subsin', a helpful and professional male insurance a
 generation_config_answer = types.GenerateContentConfig(
     temperature=0.7,
     max_output_tokens=700,
-    system_instruction=answer_instruc
+    system_instruction=answer_instruc,
+    safety_settings=DEFAULT_SAFETY_SETTINGS
 )
 
 # Azure AI Search setup
@@ -276,8 +278,7 @@ Conversation History: {chat_history if chat_history else 'None'}
     response = client_gemini.models.generate_content(
             model ='gemini-2.5-flash-preview-05-20',
             contents = prompt_content,
-            config=generation_config_classify,
-            safety_settings=DEFAULT_SAFETY_SETTINGS
+            config=generation_config_classify
         )
     raw_response = response.text.strip()
     path_decision = raw_response.strip().upper()
@@ -297,8 +298,7 @@ def generate_answer(query, context, chat_history=None):
         response = client_gemini.models.generate_content(
             model ='gemini-2.5-flash-preview-05-20',
             contents = full_prompt_for_gemini,
-            config=generation_config_answer,
-            safety_settings=DEFAULT_SAFETY_SETTINGS
+            config=generation_config_answer
         )
 
         # --- Best Practice: Check for prompt blocking ---
