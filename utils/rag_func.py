@@ -284,6 +284,14 @@ Conversation History: {chat_history if chat_history else 'None'}
             contents = prompt_content,
             config=generation_config_classify
         )
+    if response.prompt_feedback and response.prompt_feedback.block_reason:
+        print(f"Warning: Prompt was blocked in decide_search_path. Reason: {response.prompt_feedback.block_reason}")
+        return "OFF-TOPIC" # Or handle as appropriate
+
+    if not response.candidates or not response.text: # Check if .text is None or empty
+        print("Warning: No text returned from Gemini in decide_search_path.")
+        # Decide a default path or handle the error appropriately
+        return "OFF-TOPIC" 
     raw_response = response.text.strip()
     path_decision = raw_response.strip().upper()
     return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
