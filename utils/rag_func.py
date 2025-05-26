@@ -1,8 +1,8 @@
 from openai import OpenAI
 import os
 import pickle
-import threading
-import time
+# import threading
+# import time
 from dotenv import load_dotenv
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
@@ -10,25 +10,94 @@ from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import hashlib
+import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 load_dotenv()
 
 # OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
-chat_model = os.getenv("TYPHOON_CHAT_MODEL")
-classify_model = os.getenv("OPENAI_CHAT_MODEL")
+# chat_model = os.getenv("TYPHOON_CHAT_MODEL")
+# classify_model = os.getenv("OPENAI_CHAT_MODEL")
 summary_model = os.getenv("OPENAI_CHAT_MODEL")
 openai_api = os.getenv("OPENAI_API_KEY")
-typhoon_api = os.getenv("TYPHOON_API_KEY")
-
+# typhoon_api = os.getenv("TYPHOON_API_KEY")
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+genai.configure(api_key=gemini_api_key)
 
 client = OpenAI(
     api_key=openai_api,
 )
 
-client_chat = OpenAI(
-    api_key=typhoon_api,
-    base_url="https://api.opentyphoon.ai/v1"
+# client_chat = OpenAI(
+#     api_key=typhoon_api,
+#     base_url="https://api.opentyphoon.ai/v1"
+# )
+
+DEFAULT_SAFETY_SETTINGS = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+}
+
+# Configuration for Gemini API calls
+classify_instruc = """You are a highly accurate text classification model.
+Determine which single label (from the set: INSURANCE_SERVICE, INSURANCE_PRODUCT,
+CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits this scenario, based on the User Query and the Conversation History.
+
+Definitions and guidelines:
+
+1. CONTINUE CONVERSATION
+   - The user is clearly asking a follow-up question.
+   - Or user references details that were already mentioned in the conversation history.
+
+2. INSURANCE_SERVICE
+   - Specifically about insurance services such as "ติดต่อสอบถาม", "เอกสาร" , "โปรโมชั่น", "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า", etc.
+
+3. INSURANCE_PRODUCT
+   - The user wants to buy, see, or compare insurance products such as life insurance or auto insurance policies.
+
+4. MORE
+   - The user specifically asks for additional products or variations beyond what was previously discussed.
+
+5. OFF-TOPIC
+   - Anything not covered above, or the user’s query is irrelevant to insurance.
+
+Return ONLY one label. Do not add explanations.
+"""
+generation_config_classify = genai.types.GenerationConfig(
+    temperature=0.3,
+    max_output_tokens=20, # Slightly more buffer for classification labels
+    system_instruction='classify_instruc'
+)
+
+answer_instruc = ("You are 'Subsin', a helpful and professional male insurance assistant for Thai Group Holdings Public Company Limited, "
+        "covering two business units: 1) ประกันชีวิต SE Life (อาคเนย์ประกันชีวิต) and 2) ประกันภัย INSURE (อินทรประกันภัย).\n\n"
+        "### Guidelines ###\n"
+        "- ONLY use information from the provided 'Context','Conversation History' and 'User Question' when answering. Do not use outside knowledge.\n"
+        "- Always address all important points from the context if they relate to the question.\n"
+        "- If the user question is outside the provided context or no provided context or user question is not related to insurance product/service, respond briefly (≤ 30 tokens) and politely indicate you are unsure or request clarification.\n"
+        "- If the user’s question is in Thai, respond in Thai (unless referencing specific names, products, or URLs that require English).\n"
+        "- Keep responses clear and concise. Do not exceed 680 tokens.\n"
+        "- Never make up information or speculate.\n"
+        "### End Guidelines ###\n\n"
+        "Now, answer the User Question based on the Conversation History and the provided Context.")
+generation_config_answer = genai.types.GenerationConfig(
+    temperature=0.7,
+    max_output_tokens=700,
+    system_instruction=answer_instruc
+)
+
+# Initialize Gemini Model with safety settings
+gemini_model_name = "models/gemini-2.5-flash-preview-05-20"
+gemini_chat_model = genai.GenerativeModel(
+    gemini_model_name,
+    safety_settings=DEFAULT_SAFETY_SETTINGS
+)
+gemini_classify_model = genai.GenerativeModel(
+    gemini_model_name,
+    safety_settings=DEFAULT_SAFETY_SETTINGS
 )
 
 # Azure AI Search setup
@@ -47,27 +116,27 @@ service_search_client = SearchClient(
 EMBED_CACHE_TTL = int(24 * 3600)
 SEARCH_CACHE_TTL = int(3600)
 
-# Rate limiter for Typhoon chat
-class RateLimiter:
-    def __init__(self, max_calls: int, period: float):
-        self.max_calls = max_calls
-        self.period = period
-        self.lock = threading.Lock()
-        self.calls = []  # timestamps
+# # Rate limiter for Typhoon chat
+# class RateLimiter:
+#     def __init__(self, max_calls: int, period: float):
+#         self.max_calls = max_calls
+#         self.period = period
+#         self.lock = threading.Lock()
+#         self.calls = []  # timestamps
 
-    def acquire(self):
-        with self.lock:
-            now = time.time()
-            # drop stale entries
-            self.calls = [t for t in self.calls if t > now - self.period]
-            if len(self.calls) >= self.max_calls:
-                to_wait = self.period - (now - self.calls[0])
-                time.sleep(to_wait)
-            self.calls.append(time.time())
+#     def acquire(self):
+#         with self.lock:
+#             now = time.time()
+#             # drop stale entries
+#             self.calls = [t for t in self.calls if t > now - self.period]
+#             if len(self.calls) >= self.max_calls:
+#                 to_wait = self.period - (now - self.calls[0])
+#                 time.sleep(to_wait)
+#             self.calls.append(time.time())
 
-# enforce both per-second and per-minute limits
-chat_limiter_sec = RateLimiter(5, 1)
-chat_limiter_min = RateLimiter(200, 60)
+# # enforce both per-second and per-minute limits
+# chat_limiter_sec = RateLimiter(5, 1)
+# chat_limiter_min = RateLimiter(200, 60)
          
 
 def embed_text(text: str):
@@ -209,94 +278,53 @@ def summarize_context(new_question,chat_history):
 
 def decide_search_path(user_query, chat_history=None):
 
-    classification_prompt = f"""
-You are a highly accurate text classification model. 
-Determine which single label (from the set: INSURANCE_SERVICE, INSURANCE_PRODUCT, 
-CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits this scenario, based on the User Query and the Conversation History.
-
-Definitions and guidelines:
-
-1. CONTINUE CONVERSATION
-   - The user is clearly asking a follow-up question.
-   - Or user references details that were already mentioned in the conversation history.
-   - Example:
-       - "Could you give me more information on insurance we talked about?"
-       - "Clarify the cost you mentioned earlier."
-       - "You said something about life coverage; can you elaborate?"
-       - If the conversation history included "I want to buy insurance. Do you have life coverage?" 
-         and the new user query says "tell me more about the first one," then it's classify to CONTINUE CONVERSATION.
-
-2. INSURANCE_SERVICE
-   - Specifically about insurance services such as "ติดต่อสอบถาม", "เอกสาร" , "โปรโมชั่น", "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า", etc.
-
-3. INSURANCE_PRODUCT
-   - The user wants to buy, see, or compare insurance products such as life insurance or auto insurance policies.
-
-4. MORE
-   - The user specifically asks for additional products or variations beyond what was previously discussed.
-   - Common triggers might be phrases like "Show me more products" or "What else do you have?"
-
-5. OFF-TOPIC
-   - Anything not covered above, or the user’s query is irrelevant to insurance.
-
-Return ONLY one label. Do not add explanations.
-
-------------------------------------
+    prompt_content = f"""
 User Query: {user_query}
 Conversation History: {chat_history if chat_history else 'None'}
 """
 # apply rate limits
-    chat_limiter_sec.acquire()
-    chat_limiter_min.acquire()
-    response = client.chat.completions.create(
-        model=classify_model,
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a classification model. Return only one label: INSURANCE_SERVICE, INSURANCE_PRODUCT, CONTINUE CONVERSATION, MORE, OFF-TOPIC."
-            },
-            {
-                "role": "user",
-                "content": classification_prompt
-            },
-        ],
-        temperature=0.3,  # Lower temperature to reduce random variations
-        max_tokens=10,
-
-    )
-
-    # Extract classification
-    path_decision = response.choices[0].message.content.strip().upper()
+    response = gemini_classify_model.generate_content(
+            prompt_content,
+            generation_config=generation_config_classify
+        )
+    candidate = response.candidates[0]
+    generated_text = "".join(part.text for part in candidate.content.parts if hasattr(part, 'text'))
+    path_decision = generated_text.strip().upper()
     return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
 
 def generate_answer(query, context, chat_history=None):
-        prompt = (
-        "You are 'Subsin', a helpful and professional male insurance assistant for Thai Group Holdings Public Company Limited, "
-        "covering two business units: 1) ประกันชีวิต SE Life (อาคเนย์ประกันชีวิต) and 2) ประกันภัย INSURE (อินทรประกันภัย).\n\n"
-        "### Guidelines ###\n"
-        "- ONLY use information from the provided 'Context','Conversation History' and 'User Question' when answering. Do not use outside knowledge.\n"
-        "- Always address all important points from the context if they relate to the question.\n"
-        "- If the user question is outside the provided context or no provided context or user question is not related to insurance product/service, respond briefly (≤ 30 tokens) and politely indicate you are unsure or request clarification.\n"
-        "- If the user’s question is in Thai, respond in Thai (unless referencing specific names, products, or URLs that require English).\n"
-        "- Keep responses clear and concise. Do not exceed 680 tokens.\n"
-        "- Never make up information or speculate.\n"
-        "### End Guidelines ###\n"
+    gemini_prompt_parts = []
+    if chat_history:
+        gemini_prompt_parts.append(f"Conversation History:\n{chat_history}\n")
+
+    gemini_prompt_parts.append(f"Context:\n{context if context else 'No specific context provided.'}\n")
+    gemini_prompt_parts.append(f"User Question:\n{query}")
+
+    full_prompt_for_gemini = "\n".join(gemini_prompt_parts)
+    try:
+        response = gemini_chat_model.generate_content(
+            full_prompt_for_gemini,
+            generation_config=generation_config_answer,
+            # safety_settings are applied at model initialization
         )
-        user_prompt = f"""
-    Conversation History: {chat_history if chat_history else 'None'}
-    Context: {context}
-    User Question: {query} """
-        # apply rate limits
-        chat_limiter_sec.acquire()
-        chat_limiter_min.acquire()
-        response = client_chat.chat.completions.create(
-            model=chat_model,
-            messages=[{"role": "system", "content": prompt},
-            {"role": "user", "content": user_prompt}],
-            temperature=0.7,
-            max_tokens=700)
-            
-        raw_response = response.choices[0].message.content.strip()
+
+        # --- Best Practice: Check for prompt blocking ---
+        if response.prompt_feedback.block_reason:
+            raw_response = "ฉันขออภัย แต่ฉันไม่สามารถดำเนินการตามคำขอดังกล่าวได้เนื่องจากข้อจำกัดด้านเนื้อหา (I'm sorry, but I couldn't process that request due to content restrictions.)"
+            return raw_response
+
+        candidate = response.candidates[0]
         
-        return raw_response
+        if candidate.safety_ratings:
+            for rating in candidate.safety_ratings:
+                if rating.probability > 3: # THRESHOLD_MEDIUM_AND_ABOVE
+                     raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
+                     return raw_response
+
+
+    except Exception as e:
+        print(f"Error during Gemini answer generation API call: {e}")
+        # raw_response remains the default error message
+
+    return raw_response
