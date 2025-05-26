@@ -23,7 +23,8 @@ summary_model = os.getenv("OPENAI_CHAT_MODEL")
 openai_api = os.getenv("OPENAI_API_KEY")
 # typhoon_api = os.getenv("TYPHOON_API_KEY")
 gemini_api_key = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=gemini_api_key)
+
+client_gemini = genai.Client(api_key=gemini_api_key)
 
 client = OpenAI(
     api_key=openai_api,
@@ -66,7 +67,7 @@ Definitions and guidelines:
 
 Return ONLY one label. Do not add explanations.
 """
-generation_config_classify = genai.types.GenerationConfig(
+generation_config_classify = types.GenerationConfig(
     temperature=0.3,
     max_output_tokens=20, # Slightly more buffer for classification labels
     system_instruction='classify_instruc'
@@ -83,7 +84,7 @@ answer_instruc = ("You are 'Subsin', a helpful and professional male insurance a
         "- Never make up information or speculate.\n"
         "### End Guidelines ###\n\n"
         "Now, answer the User Question based on the Conversation History and the provided Context.")
-generation_config_answer = genai.types.GenerationConfig(
+generation_config_answer = types.GenerationConfig(
     temperature=0.7,
     max_output_tokens=700,
     system_instruction=answer_instruc
@@ -283,13 +284,15 @@ User Query: {user_query}
 Conversation History: {chat_history if chat_history else 'None'}
 """
 # apply rate limits
-    response = gemini_classify_model.generate_content(
-            prompt_content,
-            generation_config=generation_config_classify
+    response = client_gemini.models.generate_content(
+            model ='gemini-2.5-flash-preview-05-20',
+            contents = prompt_content,
+            config=generation_config_classify,
+            safety_settings=DEFAULT_SAFETY_SETTINGS
         )
-    candidate = response.candidates[0]
-    generated_text = "".join(part.text for part in candidate.content.parts if hasattr(part, 'text'))
-    path_decision = generated_text.strip().upper()
+    if hasattr(response, 'text'): # Fallback for simpler text access
+        raw_response = response.text.strip()
+    path_decision = raw_response.strip().upper()
     return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
 
@@ -303,10 +306,11 @@ def generate_answer(query, context, chat_history=None):
 
     full_prompt_for_gemini = "\n".join(gemini_prompt_parts)
     try:
-        response = gemini_chat_model.generate_content(
-            full_prompt_for_gemini,
-            generation_config=generation_config_answer,
-            # safety_settings are applied at model initialization
+        response = client_gemini.models.generate_content(
+            model ='gemini-2.5-flash-preview-05-20',
+            contents = full_prompt_for_gemini,
+            config=generation_config_answer,
+            safety_settings=DEFAULT_SAFETY_SETTINGS
         )
 
         # --- Best Practice: Check for prompt blocking ---
@@ -321,6 +325,9 @@ def generate_answer(query, context, chat_history=None):
                 if rating.probability > 3: # THRESHOLD_MEDIUM_AND_ABOVE
                      raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
                      return raw_response
+                
+        if hasattr(response, 'text'): # Fallback for simpler text access
+            raw_response = response.text.strip()
 
 
     except Exception as e:
