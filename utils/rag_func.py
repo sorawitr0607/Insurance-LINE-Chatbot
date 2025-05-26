@@ -67,7 +67,7 @@ Definitions and guidelines:
 
 Return ONLY one label. Do not add explanations.
 """
-generation_config_classify = types.GenerationConfig(
+generation_config_classify = types.GenerateContentConfig(
     temperature=0.3,
     max_output_tokens=20, # Slightly more buffer for classification labels
     system_instruction='classify_instruc'
@@ -84,7 +84,7 @@ answer_instruc = ("You are 'Subsin', a helpful and professional male insurance a
         "- Never make up information or speculate.\n"
         "### End Guidelines ###\n\n"
         "Now, answer the User Question based on the Conversation History and the provided Context.")
-generation_config_answer = types.GenerationConfig(
+generation_config_answer = types.GenerateContentConfig(
     temperature=0.7,
     max_output_tokens=700,
     system_instruction=answer_instruc
