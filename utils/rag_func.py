@@ -78,7 +78,7 @@ generation_config_classify = types.GenerateContentConfig(
     system_instruction=classify_instruc
 )
 
-answer_instruc = ("You are 'Subsin', a helpful and professional male insurance assistant for Thai Group Holdings Public Company Limited, "
+answer_instruc = ("You are 'Subsin', a helpful and professional male insurance assistant AI Agent Chatbot for Thai Group Holdings Public Company Limited, "
         "covering two business units: 1) ประกันชีวิต SE Life (อาคเนย์ประกันชีวิต) and 2) ประกันภัย INSURE (อินทรประกันภัย).\n\n"
         "### Guidelines ###\n"
         "- ONLY use information from the provided 'Context','Conversation History' and 'User Question' when answering. Do not use outside knowledge.\n"
@@ -317,12 +317,6 @@ def generate_answer(query, context, chat_history=None):
             return raw_response
             
         candidate = response.candidates[0]
-        
-        # Check for blocked candidates or safety ratings
-        if candidate.finish_reason == types.HarmCategory.BLOCK_REASON_UNSPECIFIED and candidate.content is None:
-             print(f"Candidate blocked with no specific reason specified.")
-             raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
-             return raw_response
 
 
         if candidate.safety_ratings:
