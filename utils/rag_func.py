@@ -310,7 +310,8 @@ def generate_answer(query, context, chat_history=None):
         
         if candidate.safety_ratings:
             for rating in candidate.safety_ratings:
-                if rating.probability > 3: # THRESHOLD_MEDIUM_AND_ABOVE
+                # Assuming you want to block if probability is MEDIUM or HIGH
+                if rating.probability >= types.HarmProbability.MEDIUM: 
                      raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
                      return raw_response
                 
