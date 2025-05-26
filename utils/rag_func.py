@@ -70,7 +70,7 @@ Return ONLY one label. Do not add explanations.
 generation_config_classify = types.GenerateContentConfig(
     temperature=0.3,
     max_output_tokens=20, # Slightly more buffer for classification labels
-    system_instruction='classify_instruc'
+    system_instruction=classify_instruc
 )
 
 answer_instruc = ("You are 'Subsin', a helpful and professional male insurance assistant for Thai Group Holdings Public Company Limited, "
@@ -279,8 +279,7 @@ Conversation History: {chat_history if chat_history else 'None'}
             config=generation_config_classify,
             safety_settings=DEFAULT_SAFETY_SETTINGS
         )
-    if hasattr(response, 'text'): # Fallback for simpler text access
-        raw_response = response.text.strip()
+    raw_response = response.text.strip()
     path_decision = raw_response.strip().upper()
     return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
@@ -315,8 +314,7 @@ def generate_answer(query, context, chat_history=None):
                      raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
                      return raw_response
                 
-        if hasattr(response, 'text'): # Fallback for simpler text access
-            raw_response = response.text.strip()
+        raw_response = response.text.strip()
 
 
     except Exception as e:
