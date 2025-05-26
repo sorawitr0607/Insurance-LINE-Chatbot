@@ -311,24 +311,34 @@ def generate_answer(query, context, chat_history=None):
         )
 
         # --- Best Practice: Check for prompt blocking ---
-        if response.prompt_feedback.block_reason:
+        if response.prompt_feedback and response.prompt_feedback.block_reason:
+            print(f"Candidate blocked with reason specified.")
             raw_response = "ฉันขออภัย แต่ฉันไม่สามารถดำเนินการตามคำขอดังกล่าวได้เนื่องจากข้อจำกัดด้านเนื้อหา (I'm sorry, but I couldn't process that request due to content restrictions.)"
             return raw_response
-
+            
         candidate = response.candidates[0]
         
+        # Check for blocked candidates or safety ratings
+        if candidate.finish_reason == types.HarmCategory.BLOCK_REASON_UNSPECIFIED and candidate.content is None:
+             print(f"Candidate blocked with no specific reason specified.")
+             raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
+             return raw_response
+
+
         if candidate.safety_ratings:
             for rating in candidate.safety_ratings:
                 # Assuming you want to block if probability is MEDIUM or HIGH
-                if rating.probability >= types.HarmProbability.MEDIUM: 
-                     raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
-                     return raw_response
+                if rating.probability >= types.HarmProbability.MEDIUM:
+                    print(f"Candidate blocked due to safety rating: {rating.category} - {rating.probability}")
+                    raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
+                    return raw_response
                 
         return response.text.strip()
 
 
     except Exception as e:
-        print(f"Error during Gemini answer generation API call: {e}")
+        print(f"Error Type: {type(e)}")
+        print(f"Error Message: {e}")
         raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้ในขณะนี้ โปรดลองอีกครั้ง"
         return raw_response
         # raw_response remains the default error message
