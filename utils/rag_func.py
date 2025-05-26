@@ -75,8 +75,7 @@ Return ONLY one label. Do not add explanations.
 generation_config_classify = types.GenerateContentConfig(
     temperature=0.3,
     max_output_tokens=20, # Slightly more buffer for classification labels
-    system_instruction=classify_instruc,
-    safety_settings=safety_settings_list
+    system_instruction=classify_instruc
 )
 
 answer_instruc = ("You are 'Subsin', a helpful and professional male insurance assistant for Thai Group Holdings Public Company Limited, "
