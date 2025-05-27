@@ -45,7 +45,6 @@ def get_gemini() -> genai.Client:
         _gemini_client = genai.Client(
             api_key=os.getenv("GEMINI_API_KEY"))
     return _gemini_client
-<<<<<<< HEAD
 
 def get_line_api() -> MessagingApi:
     """Thread-safe singleton for the LINE Messaging API."""
@@ -54,5 +53,3 @@ def get_line_api() -> MessagingApi:
         configuration = Configuration(access_token=os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
         _line_api = MessagingApi(ApiClient(configuration))
     return _line_api
-=======
->>>>>>> 3ffe691704d941ba4bddfed7f7b99a8f9c6b5975
