@@ -1,10 +1,13 @@
-import os
+import os,httpx
 import time
 import threading
 import pickle
 import logging
+import asyncio
+
 from dotenv import load_dotenv
-from flask import Flask, request, abort
+from fastapi import FastAPI, Request, Header, HTTPException, Body # Changed from Flask
+# from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import (
     Configuration, ApiClient, MessagingApi,
@@ -16,7 +19,6 @@ from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-
 # import sys
 # sys.path.append(r"D:\RAG\AZURE\New Deploy (2)\LINE_RAG_API-main (2)\LINE_RAG_API-main")
 
@@ -27,6 +29,7 @@ from utils.rag_func import (
     decide_search_path, generate_answer, summarize_context, get_search_results
 )
 
+
 from utils.cache import get_memcache   
 
 load_dotenv()
@@ -34,8 +37,15 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api_webhook")
 
-# LINE API
-app = Flask(__name__)
+# # LINE API
+# app = Flask(__name__)
+# configuration = Configuration(access_token=os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
+# handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
+
+# FastAPI App Initialization
+app = FastAPI() # Changed from Flask
+
+# LINE API Configuration (remains the same)
 configuration = Configuration(access_token=os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
@@ -67,92 +77,72 @@ FAQ_QUICK_REPLY = QuickReply(
         for label,url in FAQ_BUTTON_META.items()
     ])
 
-def safe_reply(
-    line_bot_api: MessagingApi,
-    reply_token: str,
-    messages: list[TextMessage],
-    *,
-    fallback_text: str = "ขออภัย ระบบขัดข้อง กรุณาลองใหม่อีกครั้งนะครับ 🙏"
-):
+# def safe_reply(
+#     line_bot_api: MessagingApi,
+#     reply_token: str,
+#     messages: list[TextMessage],
+#     *,
+#     fallback_text: str = "ขออภัย ระบบขัดข้อง กรุณาลองใหม่อีกครั้งนะครับ 🙏"
+# ):
 
-    try:
-        line_bot_api.reply_message_with_http_info(
-            ReplyMessageRequest(reply_token=reply_token, messages=messages)
-        )
-    except Exception as exc:
-        logger.exception("LINE reply failed", exc_info=exc)
-        try:
-            line_bot_api.reply_message_with_http_info(
-                ReplyMessageRequest(
-                    reply_token=reply_token,
-                    messages=[TextMessage(text=fallback_text)]
-                )
-            )
-        except Exception:
-            logger.error("Fallback LINE reply also failed.", exc_info=True)
+#     try:
+#         line_bot_api.reply_message_with_http_info(
+#             ReplyMessageRequest(reply_token=reply_token, messages=messages)
+#         )
+#     except Exception as exc:
+#         logger.exception("LINE reply failed", exc_info=exc)
+#         try:
+#             line_bot_api.reply_message_with_http_info(
+#                 ReplyMessageRequest(
+#                     reply_token=reply_token,
+#                     messages=[TextMessage(text=fallback_text)]
+#                 )
+#             )
+#         except Exception:
+#             logger.error("Fallback LINE reply also failed.", exc_info=True)
             
-def send_loading_indicator(user_id, duration=25):
-    import requests
+async def _send_loading_indicator(user_id: str, seconds: int = 20) -> None:
+    url = "https://api.line.me/v2/bot/chat/loading/start"
     headers = {
-        'Authorization': f'Bearer {os.getenv("LINE_CHANNEL_ACCESS_TOKEN")}',
-        'Content-Type': 'application/json'
+        "Authorization": f"Bearer {os.getenv('LINE_CHANNEL_ACCESS_TOKEN')}",
+        "Content-Type": "application/json"
     }
-    data = {
-        "chatId": user_id,
-        "loadingSeconds": duration
-    }
-    requests.post('https://api.line.me/v2/bot/chat/loading/start', headers=headers, json=data)
+    payload = {"chatId": user_id, "loadingSeconds": seconds}
+    async with httpx.AsyncClient(http2=True, timeout=5) as client:
+        await client.post(url, json=payload, headers=headers)
 
-def process_message_batch(user_id):
 
-    time.sleep(MESSAGE_WINDOW)
-    cache_key = f"message_buffer:{user_id}"
-    cached_data = mc_client.get(cache_key)
+def _run_rag_pipeline(user_id: str, buffer_data: dict[str, any]) -> tuple[str, str]:
+    user_query   = " ".join(buffer_data["messages"])
+    reply_token  = buffer_data["reply_token"]
 
-    if not cached_data:
-        return
+    # ---------- path decision ----------
+    chat_hist, latest_decision, latest_user = get_conversation_state(user_id)
+    path_decision = decide_search_path(user_query)
 
-    buffer_data = pickle.loads(cached_data)
-    user_query = " ".join(buffer_data['messages'])
-    reply_token = buffer_data['reply_token']
-    
-    if user_query in FAQ_CACHED_ANSWERS:
-        response = FAQ_CACHED_ANSWERS[user_query]
-        path_decision = 'OFF-TOPIC'
+    if path_decision == "INSURANCE_SERVICE":
+        context = get_search_results(user_query, top_k=3, skip_k=0, service=True)
+    elif path_decision == "INSURANCE_PRODUCT":
+        context = get_search_results(user_query, top_k=7, skip_k=0, service=False)
+    elif path_decision == "CONTINUE CONVERSATION":
+        summary_ctx = summarize_context(user_query, latest_user)
+        service_flag = latest_decision == "INSURANCE_SERVICE"
+        context = get_search_results(summary_ctx, 3 if service_flag else 7, 0, service_flag)
+        path_decision = "INSURANCE_SERVICE" if service_flag else "INSURANCE_PRODUCT"
+    elif path_decision == "MORE":
+        context = get_search_results(user_query, top_k=7, skip_k=7, service=False)
     else:
-        chat_history,latest_decide, chat_user_latest = get_conversation_state(user_id)
-        #print(len(chat_history))
-        path_decision = decide_search_path(user_query,chat_history)
-        
-        # print(path_decision)
-        
-        
-        if path_decision == "INSURANCE_SERVICE":
-            context = get_search_results(query=user_query, top_k=3, skip_k=0, service = True)
-        elif path_decision == "INSURANCE_PRODUCT":
-            context = get_search_results(query=user_query, top_k=7, skip_k=0, service = False)
-        elif path_decision == "CONTINUE CONVERSATION":
-            summary_context_search = summarize_context(user_query,chat_user_latest)
-            if latest_decide == "INSURANCE_SERVICE":
-                context = get_search_results(query=summary_context_search, top_k=3, skip_k=0, service = True)
-                path_decision = 'INSURANCE_SERVICE'
-            else:
-                context = get_search_results(query=summary_context_search, top_k=7, skip_k=0, service = False)
-                path_decision = 'INSURANCE_PRODUCT'
-        elif path_decision == "MORE":
-            context = get_search_results(query=user_query, top_k=7, skip_k=7, service = False)
-        else:
-            chat_history = None
-            context = ""
-        
-        response = generate_answer(user_query, context, chat_history)
+        context, chat_hist = "", None
+
+    response = generate_answer(user_query, context, chat_hist)
 
     with ApiClient(configuration) as api_client:
-        line_bot_api = MessagingApi(api_client)
-        safe_reply(                                         
-            line_bot_api,
-            reply_token,
-            [TextMessage(text=response, quickReply=FAQ_QUICK_REPLY)]
+        line_api = MessagingApi(api_client)
+        line_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=reply_token,
+                messages=[TextMessage(text=response, quickReply=FAQ_QUICK_REPLY)]
+            )
         )
 
     timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
@@ -160,58 +150,80 @@ def process_message_batch(user_id):
     timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
     save_chat_history(user_id, "assistant", response, timestamp,path_decision)
     
-    # Clear buffer
-    mc_client.delete(cache_key)
+
+    return response, path_decision
+
+async def process_message_batch(user_id: str) -> None:
+
+    await asyncio.sleep(MESSAGE_WINDOW)
+
+    mc = get_memcache()
+    cache_key   = f"message_buffer:{user_id}"
+    cached_data = mc.get(cache_key)
+    if not cached_data:
+        return                                  # nothing to do
+
+    buffer_data = pickle.loads(cached_data)
+    # run blocking code in a worker thread
+    await asyncio.to_thread(_run_rag_pipeline, user_id, buffer_data)
+    mc.delete(cache_key)
 
 @handler.add(MessageEvent, message=TextMessageContent)
-def handle_message(event):
+async def handle_message(event):
     user_id = event.source.user_id
     message_text = event.message.text
     reply_token = event.reply_token
     
     if message_text == "CHAT RESET":
         del_chat_history(user_id)
-        with ApiClient(configuration) as api_client:
-            line_bot_api = MessagingApi(api_client)
-            safe_reply(                                     
-                line_bot_api,
-                reply_token,
-                [TextMessage(text="แชทของคุณถูกรีเซ็ตเรียบร้อยแล้ว")]
-            )
+        async with ApiClient(configuration) as api_client:
+            line_api = MessagingApi(api_client)
+            line_api.reply_message_with_http_info(
+                ReplyMessageRequest(reply_token=reply_token,
+                                    messages=[TextMessage(text="แชทของคุณถูกรีเซ็ตเรียบร้อยแล้ว")]))
         return
     
-    threading.Thread(target=send_loading_indicator, args=(user_id,25)).start()
-    
-    cache_key = f"message_buffer:{user_id}"
-    cached_data = mc_client.get(cache_key)
-    
-    if cached_data:
-       buffer_data = pickle.loads(cached_data)
-       buffer_data['messages'].append(message_text)
-       buffer_data['reply_token'] = reply_token  # latest reply token
-    else:
-       buffer_data = {
-           'messages': [message_text],
-           'reply_token': reply_token
-       }
-       threading.Thread(target=process_message_batch, args=(user_id,), daemon=True).start()
-       
-    mc_client.set(cache_key, pickle.dumps(buffer_data), MESSAGE_WINDOW+3)
-    
-    
-@app.route("/webhook", methods=['POST'])
-def webhook():
-    signature = request.headers['X-Line-Signature']
-    body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        app.logger.info("Invalid signature. Please check your channel access token/channel secret.")
-        abort(400)
+    # 1) show “typing…” indicator (non-blocking)
+    asyncio.create_task(_send_loading_indicator(user_id, 20))
 
+    # 2) append to buffer in Memcached
+    mc = get_memcache()
+    cache_key = f"message_buffer:{user_id}"
+    cur       = mc.get(cache_key)
+    now       = time.time()
+
+    if cur:
+        buf = pickle.loads(cur)
+        buf["messages"].append(message_text)
+        buf["reply_token"] = reply_token
+        buf["timestamp"]   = now
+    else:                                    # first message in a burst
+        buf = {"messages": [message_text],
+               "reply_token": reply_token,
+               "timestamp":  now}
+        # schedule the batch processor once
+        asyncio.create_task(process_message_batch(user_id))
+
+    mc.set(cache_key, pickle.dumps(buf), ex=MESSAGE_WINDOW + 3)
+    
+    
+@app.post("/webhook")
+async def webhook(
+    body: str = Body(..., media_type="application/json"),
+    x_line_signature: str = Header(..., alias="X-Line-Signature")):
+
+    try:
+        await asyncio.to_thread(handler.handle, body, x_line_signature)
+    except InvalidSignatureError:
+        logger.warning("Invalid signature. Please check your channel access token/channel secret.") # Changed to warning
+        raise HTTPException(status_code=400, detail="Invalid signature. Please check your channel access token/channel secret.")
+    except Exception as e:
+        logger.error("Error processing webhook", exc_info=e)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     return 'OK'
 
 # if __name__ == "__main__":
 #     app.run(host="0.0.0.0", port=8000)
     # app.run(debug=True,use_reloader=False)
+
+# uvicorn api_webhook:app --host 0.0.0.0 --port 8000 --reload

@@ -4,6 +4,8 @@ import pickle
 # import threading
 # import time
 from dotenv import load_dotenv
+import joblib
+from sentence_transformers import SentenceTransformer
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import VectorizedQuery
@@ -12,6 +14,15 @@ from zoneinfo import ZoneInfo
 import hashlib
 from google import genai
 from google.genai import types
+
+from utils.clients import get_search_client, get_service_search_client,get_openai,get_gemini
+
+# inside the function: 
+client_gemini = get_gemini()
+client = get_openai()
+search_client = get_search_client()
+service_search_client = get_service_search_client()
+
 
 load_dotenv()
 
@@ -24,11 +35,11 @@ openai_api = os.getenv("OPENAI_API_KEY")
 # typhoon_api = os.getenv("TYPHOON_API_KEY")
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
-client_gemini = genai.Client(api_key=gemini_api_key)
+# client_gemini = genai.Client(api_key=gemini_api_key)
 
-client = OpenAI(
-    api_key=openai_api,
-)
+# client = OpenAI(
+#     api_key=openai_api,
+# )
 
 # client_chat = OpenAI(
 #     api_key=typhoon_api,
@@ -47,36 +58,36 @@ safety_settings_list = [
     for category, threshold in DEFAULT_SAFETY_SETTINGS.items()
 ]
 
-# Configuration for Gemini API calls
-classify_instruc = """You are a highly accurate text classification model.
-Determine which single label (from the set: INSURANCE_SERVICE, INSURANCE_PRODUCT,
-CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits this scenario, based on the User Query and the Conversation History.
+# # Configuration for Gemini API calls
+# classify_instruc = """You are a highly accurate text classification model.
+# Determine which single label (from the set: INSURANCE_SERVICE, INSURANCE_PRODUCT,
+# CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits this scenario, based on the User Query and the Conversation History.
 
-Definitions and guidelines:
+# Definitions and guidelines:
 
-1. CONTINUE CONVERSATION
-   - The user is clearly asking a follow-up question.
-   - Or user references details that were already mentioned in the conversation history.
+# 1. CONTINUE CONVERSATION
+#    - The user is clearly asking a follow-up question.
+#    - Or user references details that were already mentioned in the conversation history.
 
-2. INSURANCE_SERVICE
-   - Specifically about insurance services such as "ติดต่อสอบถาม", "เอกสาร" , "โปรโมชั่น", "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า", etc.
+# 2. INSURANCE_SERVICE
+#    - Specifically about insurance services such as "ติดต่อสอบถาม", "เอกสาร" , "โปรโมชั่น", "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า", etc.
 
-3. INSURANCE_PRODUCT
-   - The user wants to buy, see, or compare insurance products such as life insurance or auto insurance policies.
+# 3. INSURANCE_PRODUCT
+#    - The user wants to buy, see, or compare insurance products such as life insurance or auto insurance policies.
 
-4. MORE
-   - The user specifically asks for additional products or variations beyond what was previously discussed.
+# 4. MORE
+#    - The user specifically asks for additional products or variations beyond what was previously discussed.
 
-5. OFF-TOPIC
-   - Anything not covered above, or the user’s query is irrelevant to insurance.
+# 5. OFF-TOPIC
+#    - Anything not covered above, or the user’s query is irrelevant to insurance.
 
-Return ONLY one label. Do not add explanations.
-"""
-generation_config_classify = types.GenerateContentConfig(
-    temperature=0.3,
-    #max_output_tokens=50, # Slightly more buffer for classification labels
-    system_instruction=classify_instruc
-)
+# Return ONLY one label. Do not add explanations.
+# """
+# generation_config_classify = types.GenerateContentConfig(
+#     temperature=0.3,
+#     #max_output_tokens=50, # Slightly more buffer for classification labels
+#     system_instruction=classify_instruc
+# )
 
 answer_instruc = ("You are 'Subsin', a helpful and professional male insurance assistant AI Agent Chatbot for Thai Group Holdings Public Company Limited, "
         "covering two business units: 1) ประกันชีวิต SE Life (อาคเนย์ประกันชีวิต) and 2) ประกันภัย INSURE (อินทรประกันภัย).\n\n"
@@ -96,18 +107,18 @@ generation_config_answer = types.GenerateContentConfig(
     safety_settings=safety_settings_list
 )
 
-# Azure AI Search setup
-search_client = SearchClient(
-    endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
-    index_name=os.getenv("AZURE_SEARCH_INDEX"),
-    credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
-)
+# # Azure AI Search setup
+# search_client = SearchClient(
+#     endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
+#     index_name=os.getenv("AZURE_SEARCH_INDEX"),
+#     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
+# )
 
-service_search_client = SearchClient(
-    endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
-    index_name=os.getenv("AZURE_SEARCH_INDEX_INSURANCE_SERVICE"),
-    credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
-)
+# service_search_client = SearchClient(
+#     endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
+#     index_name=os.getenv("AZURE_SEARCH_INDEX_INSURANCE_SERVICE"),
+#     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
+# )
 
 EMBED_CACHE_TTL = int(24 * 3600)
 SEARCH_CACHE_TTL = int(3600)
@@ -139,6 +150,7 @@ def embed_text(text: str):
     from utils.cache import get_memcache   
     mc_client = get_memcache()
     normalized = text.replace("\n", " ").strip()
+    normalized = " ".join(normalized.split()).lower()
     key = "embed:" + hashlib.md5(normalized.encode("utf-8")).hexdigest()
     # print(key)
     cached = mc_client.get(key)
@@ -188,7 +200,7 @@ def get_search_results(query: str, top_k: int, skip_k:int=0, service: bool = Fal
     vect = embed_text(query)
     vq = VectorizedQuery(
         vector=vect, 
-        k_nearest_neighbors=100, 
+        k_nearest_neighbors=10, 
         fields="text_vector"
     )
     client_to_use = service_search_client if service else search_client
@@ -284,26 +296,32 @@ def summarize_context(new_question,chat_history):
     return summary
 
 
-def decide_search_path(user_query, chat_history=None):
+# def decide_search_path(user_query, chat_history=None):
 
-    prompt_content = f"""
-User Query: {user_query}
-Conversation History: {chat_history if chat_history else 'None'}
-"""
-# apply rate limits
-    response = client_gemini.models.generate_content(
-            model ='gemini-2.5-flash-preview-05-20',
-            contents = prompt_content,
-            config=generation_config_classify
-        )
+#     prompt_content = f"""
+# User Query: {user_query}
+# Conversation History: {chat_history if chat_history else 'None'}
+# """
+# # apply rate limits
+#     response = client_gemini.models.generate_content(
+#             model ='gemini-2.5-flash-preview-05-20',
+#             contents = prompt_content,
+#             config=generation_config_classify
+#         )
 
-    if not response.candidates or not response.text: # Check if .text is None or empty
-        print("Warning: No text returned from Gemini in decide_search_path.")
-        # Decide a default path or handle the error appropriately
-        return "OFF-TOPIC" 
-    raw_response = response.text.strip()
-    path_decision = raw_response.strip().upper()
-    return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
+#     if not response.candidates or not response.text: # Check if .text is None or empty
+#         print("Warning: No text returned from Gemini in decide_search_path.")
+#         # Decide a default path or handle the error appropriately
+#         return "OFF-TOPIC" 
+#     raw_response = response.text.strip()
+#     path_decision = raw_response.strip().upper()
+#     return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
+
+_classifier = joblib.load("decide_path_lr.joblib")
+MODEL = SentenceTransformer("distiluse-base-multilingual-cased-v2")
+def decide_search_path(text: str) -> str:
+    emb = MODEL.encode([text])
+    return _classifier.predict(emb)[0]
 
 
 def generate_answer(query, context, chat_history=None):
