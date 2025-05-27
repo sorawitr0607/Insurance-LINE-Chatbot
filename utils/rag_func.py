@@ -214,14 +214,26 @@ def summarize_text(text, max_chars, user_id):
     if len(text) <= max_chars:
         return text
     
-    system_prompt = "You are a helpful assistant. Condense the user's conversation by selectively removing less important or redundant information. Prioritize preserving numeric details, specific names, exact wording, key facts, and recent messages. Avoid overly summarizing; keep the original details intact.,Respond concisely and not exceed 1000 tokens."
+    system_prompt = (
+        "You are an expert conversation summarizer. Your task is to condense the provided 'Raw Conversation Log' "
+        "into a clear, concise, and chronologically accurate summary. This summary will replace the raw log and "
+        "will be used as the sole context for future interactions with an AI assistant. "
+        "Therefore, it is crucial that the summary preserves all key information, "
+        "including specific questions asked by the user, important details or entities mentioned (like product names, "
+        "dates, amounts), and the core responses or information provided by the assistant. "
+        "Maintain the order of events as they occurred. Ensure the summary reads like a continuous narrative of the conversation so far. "
+        "Focus on facts and essential context, omitting pleasantries or redundant phrases if they don't add informational value. "
+        "The output should be a single block of text. Do not exceed 1000 tokens."
+    )
+    
+    user_content_for_summarizer = f"Raw Conversation Log:\n{text}"
     response = client.chat.completions.create(
         model=summary_model,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": text}
+            {"role": "user", "content": user_content_for_summarizer}
         ],
-        temperature=0.5,
+        temperature=0.3,
         max_tokens=1000
     )
     summary = response.choices[0].message.content.strip()
