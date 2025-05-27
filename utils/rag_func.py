@@ -1,4 +1,3 @@
-from openai import OpenAI
 import os
 import pickle
 # import threading
@@ -6,13 +5,10 @@ import pickle
 from dotenv import load_dotenv
 import joblib
 from sentence_transformers import SentenceTransformer
-from azure.search.documents import SearchClient
-from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import hashlib
-from google import genai
 from google.genai import types
 
 from utils.clients import get_search_client, get_service_search_client,get_openai,get_gemini
@@ -23,10 +19,8 @@ client = get_openai()
 search_client = get_search_client()
 service_search_client = get_service_search_client()
 
-
 load_dotenv()
 
-# OpenAI setup
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
 # chat_model = os.getenv("TYPHOON_CHAT_MODEL")
 # classify_model = os.getenv("OPENAI_CHAT_MODEL")
@@ -144,7 +138,12 @@ SEARCH_CACHE_TTL = int(3600)
 # # enforce both per-second and per-minute limits
 # chat_limiter_sec = RateLimiter(5, 1)
 # chat_limiter_min = RateLimiter(200, 60)
-         
+
+@lru_cache(maxsize=1)
+def _load_classifier():
+    model = SentenceTransformer("distiluse-base-multilingual-cased-v2")
+    clf   = joblib.load("decide_path_lr.joblib")
+    return model, clf
 
 def embed_text(text: str):
     from utils.cache import get_memcache   
@@ -317,11 +316,10 @@ def summarize_context(new_question,chat_history):
 #     path_decision = raw_response.strip().upper()
 #     return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
-_classifier = joblib.load("decide_path_lr.joblib")
-MODEL = SentenceTransformer("distiluse-base-multilingual-cased-v2")
 def decide_search_path(text: str) -> str:
-    emb = MODEL.encode([text])
-    return _classifier.predict(emb)[0]
+    model, clf = _load_classifier()
+    emb        = model.encode([text])
+    return clf.predict(emb)[0]
 
 
 def generate_answer(query, context, chat_history=None):
