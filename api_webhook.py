@@ -77,30 +77,7 @@ FAQ_QUICK_REPLY = QuickReply(
         for label,url in FAQ_BUTTON_META.items()
     ])
 
-# def safe_reply(
-#     line_bot_api: MessagingApi,
-#     reply_token: str,
-#     messages: list[TextMessage],
-#     *,
-#     fallback_text: str = "ขออภัย ระบบขัดข้อง กรุณาลองใหม่อีกครั้งนะครับ 🙏"
-# ):
 
-#     try:
-#         line_bot_api.reply_message_with_http_info(
-#             ReplyMessageRequest(reply_token=reply_token, messages=messages)
-#         )
-#     except Exception as exc:
-#         logger.exception("LINE reply failed", exc_info=exc)
-#         try:
-#             line_bot_api.reply_message_with_http_info(
-#                 ReplyMessageRequest(
-#                     reply_token=reply_token,
-#                     messages=[TextMessage(text=fallback_text)]
-#                 )
-#             )
-#         except Exception:
-#             logger.error("Fallback LINE reply also failed.", exc_info=True)
-            
 async def _send_loading_indicator(user_id: str, seconds: int = 20) -> None:
     url = "https://api.line.me/v2/bot/chat/loading/start"
     headers = {
