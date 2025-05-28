@@ -1,7 +1,7 @@
 openai
 fastapi[all]
 uvicorn[standard]
-httpx
+httpx[http2]
 python-dotenv
 azure-search-documents
 line-bot-sdk
