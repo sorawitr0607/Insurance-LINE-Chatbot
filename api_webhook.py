@@ -1,5 +1,5 @@
-import sys
-sys.path.append(r"D:\RAG\AZURE\New Deploy (3)\LINE_RAG_API")
+# import sys
+# sys.path.append(r"D:\RAG\AZURE\New Deploy (3)\LINE_RAG_API")
 import os, time, asyncio, pickle, logging
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor
