@@ -2,6 +2,7 @@ import os
 import pickle
 # import threading
 # import time
+from functools import lru_cache
 from dotenv import load_dotenv
 import joblib
 from sentence_transformers import SentenceTransformer

@@ -1,5 +1,4 @@
 import os
-from functools import lru_cache
 from dotenv import load_dotenv
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
