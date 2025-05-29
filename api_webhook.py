@@ -7,8 +7,9 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import httpx
+from functools import lru_cache
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Header, HTTPException, Body # Changed from Flask
+from fastapi import FastAPI, Request, Header, HTTPException
 # from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
@@ -39,9 +40,9 @@ logger = logging.getLogger("api_webhook")
 app = FastAPI() # Changed from Flask
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-_EXEC = ThreadPoolExecutor(max_workers=2)    
+_EXEC = ThreadPoolExecutor(max_workers=int(os.getenv("MAX_WORKERS")))  
 mc_client = get_memcache()                 
-MESSAGE_WINDOW = 2
+MESSAGE_WINDOW = int(os.getenv("MESSAGE_WINDOW_EXP"))
 
 FAQ_CACHED_ANSWERS = {
     "ศูนย์ดูแลลูกค้า": " Se Life : 02-255-5656 \n IN-SURE : 02-636-5656 \n เวลาทำการ : จันทร์ - ศุกร์ 08.30 - 17.00 น",
@@ -82,6 +83,18 @@ async def _to_thread(fn, *args, **kwargs):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(_EXEC, partial(fn, *args, **kwargs))
 
+@lru_cache(maxsize=1)
+def get_async_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        http2=True,
+        timeout=httpx.Timeout(5.0),
+        transport=httpx.HTTPTransport(retries=3)  # automatic 3-try back-off
+    )
+
+async def close_async_client() -> None:
+    """Call this in FastAPI's shutdown event to close keep-alive connections."""
+    await get_async_client().aclose()
+
 async def _send_loading_indicator(user_id: str, seconds: int = 20) -> None:
     url = "https://api.line.me/v2/bot/chat/loading/start"
     headers = {
@@ -89,8 +102,8 @@ async def _send_loading_indicator(user_id: str, seconds: int = 20) -> None:
         "Content-Type": "application/json"
     }
     payload = {"chatId": user_id, "loadingSeconds": seconds}
-    async with httpx.AsyncClient(http2=True, timeout=5) as client:
-        await client.post(url, json=payload, headers=headers)
+    client = get_async_client()                     
+    await client.post(url, json=payload, headers=headers)
 
 
 async def _run_rag_pipeline(user_id: str, buffer_data: dict[str, any]) -> tuple[str, str]:
@@ -126,7 +139,7 @@ async def _run_rag_pipeline(user_id: str, buffer_data: dict[str, any]) -> tuple[
         )
         logger.info(f"[{user_id}] Conversation state retrieved. Latest decision: {latest_decision}")
 
-        path_decision = await _to_thread(decide_search_path, user_query)
+        path_decision = await _to_thread(decide_search_path, user_query,chat_hist)
         logger.info(f"[{user_id}] Path decision: {path_decision}")
 
         context = "" # Initialize context
@@ -243,7 +256,7 @@ async def _async_handle_message_logic(event: MessageEvent):
     try:
         pickled_buf = pickle.dumps(buf)
         # The expiry is MESSAGE_WINDOW + 3 = 5 seconds
-        set_result = mc_client.set(cache_key, pickled_buf, time=MESSAGE_WINDOW + 3) 
+        set_result = mc_client.set(cache_key, pickled_buf, MESSAGE_WINDOW + 3) 
 
         if set_result:
             logger.info(f"[{user_id}] Message buffer successfully SET in cache. Key: {cache_key}. Expires in: {MESSAGE_WINDOW + 3}s. Data size: {len(pickled_buf)} bytes.")
@@ -259,22 +272,18 @@ def handle_message(event: MessageEvent): # This is a synchronous function #
     logger.info(f"Sync Wrapper: Received event for user {event.source.user_id}, text: '{event.message.text}'. Scheduling async handler.") #
     if main_event_loop:
         # Submit the coroutine to be run on the main event loop
-        future = asyncio.run_coroutine_threadsafe(_async_handle_message_logic(event), main_event_loop)
+        _ = asyncio.run_coroutine_threadsafe(_async_handle_message_logic(event), main_event_loop)
         logger.info(f"Sync Wrapper: Task for _async_handle_message_logic scheduled on main event loop for user {event.source.user_id}.")
-        # Optionally, you can add a callback to the future if you need to handle results or exceptions
-        # future.add_done_callback(lambda f: logger.info(f"Async task completed. Result: {f.result()} Exception: {f.exception()}"))
+
     else:
         logger.error("Sync Wrapper: Main event loop not available. Cannot schedule async task for user {event.source.user_id}.")
-        # Handle this critical error, perhaps by replying with an error message to the user if possible,
-        # though replying from here without the event loop is also problematic.
-        # This indicates a setup issue.
+
     
     
 @app.post("/webhook")
 async def webhook(
     request: Request,
     x_line_signature: str = Header(..., alias="X-Line-Signature")):
-    # body: str = Body(..., media_type="application/json"),
     body = await request.body()
     body_str = body.decode("utf-8")
 
@@ -289,9 +298,11 @@ async def webhook(
 
     return "OK"
 
-# if __name__ == "__main__":
-#     #app.run(host="0.0.0.0", port=8000)
-#     app.run(debug=True,use_reloader=False)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await close_async_client()
+
 
 # uvicorn api_webhook:app --host 0.0.0.0 --port 8000 --reload
 

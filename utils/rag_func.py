@@ -2,10 +2,10 @@ import os
 import pickle
 # import threading
 # import time
-from functools import lru_cache
+# from functools import lru_cache
 from dotenv import load_dotenv
-import joblib
-from sentence_transformers import SentenceTransformer
+# import joblib
+# from sentence_transformers import SentenceTransformer
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -53,50 +53,108 @@ safety_settings_list = [
     for category, threshold in DEFAULT_SAFETY_SETTINGS.items()
 ]
 
-# # Configuration for Gemini API calls
-# classify_instruc = """You are a highly accurate text classification model.
-# Determine which single label (from the set: INSURANCE_SERVICE, INSURANCE_PRODUCT,
-# CONTINUE CONVERSATION, MORE, OFF-TOPIC) best fits this scenario, based on the User Query and the Conversation History.
+# Configuration for Gemini API calls
+classify_instruc = """You are a precise text classification model. Your task is to assign a single, most appropriate label to the user's query based on the provided 'User Query' and 'Conversation History'.
 
-# Definitions and guidelines:
+**TASK:**
+Analyze the 'User Query' in the context of the 'Conversation History' (if any) and select ONE label from the following options:
+- INSURANCE_SERVICE
+- INSURANCE_PRODUCT
+- CONTINUE CONVERSATION
+- MORE
+- OFF-TOPIC
 
-# 1. CONTINUE CONVERSATION
-#    - The user is clearly asking a follow-up question.
-#    - Or user references details that were already mentioned in the conversation history.
+**LABEL DEFINITIONS & GUIDELINES:**
 
-# 2. INSURANCE_SERVICE
-#    - Specifically about insurance services such as "ติดต่อสอบถาม", "เอกสาร" , "โปรโมชั่น", "กรอบระยะเวลาสำหรับการให้บริการ","ประกันกลุ่ม","ตรวจสอบผู้ขายประกัน","ดาวน์โหลดแบบฟอร์มต่างๆ","ค้นหาโรงพยาบาลคู่สัญญา","ค้นหาสาขา","บริการพิเศษ","บริการเรียกร้องสินไหมทดแทน","บริการด้านการพิจารณารับประกัน","บริการผู้ถือกรมธรรม์","บริการรับเรื่องร้องเรียน","ข้อแนะนำในการแจ้งอุบัติเหตุ","บริการตัวแทน - นายหน้า", etc.
+1.  **CONTINUE CONVERSATION:**
+    * The user is asking a direct follow-up question related to the immediately preceding turns in the 'Conversation History'.
+    * The user explicitly references information or entities previously discussed in the 'Conversation History'.
+    * Example: If the assistant just provided details about "Product A", and the user asks "What is the premium for Product A?", this is CONTINUE_CONVERSATION.
 
-# 3. INSURANCE_PRODUCT
-#    - The user wants to buy, see, or compare insurance products such as life insurance or auto insurance policies.
+2.  **INSURANCE_SERVICE:**
+    * The query is specifically about insurance-related services, processes, or support.
+    * Keywords (Thai): "ติดต่อสอบถาม", "เอกสาร", "โปรโมชั่น", "กรอบระยะเวลาสำหรับการให้บริการ", "ประกันกลุ่ม", "ตรวจสอบผู้ขายประกัน", "ดาวน์โหลดแบบฟอร์ม", "ค้นหาโรงพยาบาลคู่สัญญา", "ค้นหาสาขา", "บริการพิเศษ", "บริการเรียกร้องสินไหมทดแทน", "บริการด้านการพิจารณารับประกัน", "บริการผู้ถือกรมธรรม์", "บริการรับเรื่องร้องเรียน", "ข้อแนะนำในการแจ้งอุบัติเหตุ", "บริการตัวแทน - นายหน้า".
+    * Examples (English): "How do I file a claim?", "Where can I find policy documents?", "What are the current promotions?"
 
-# 4. MORE
-#    - The user specifically asks for additional products or variations beyond what was previously discussed.
+3.  **INSURANCE_PRODUCT:**
+    * The query indicates interest in acquiring, viewing details of, or comparing specific insurance products (e.g., life insurance, auto insurance, health policies).
+    * Examples: "Tell me about your car insurance options.", "I want to buy travel insurance.", "Compare life insurance plans."
 
-# 5. OFF-TOPIC
-#    - Anything not covered above, or the user’s query is irrelevant to insurance.
+4.  **MORE:**
+    * The user explicitly asks for additional products, services, or variations beyond what has already been presented or discussed in the 'Conversation History'.
+    * This implies a previous interaction where options were given.
+    * Examples: "Show me other similar products.", "Are there any other services related to this?", "What else do you have?"
 
-# Return ONLY one label. Do not add explanations.
-# """
-# generation_config_classify = types.GenerateContentConfig(
-#     temperature=0.3,
-#     #max_output_tokens=50, # Slightly more buffer for classification labels
-#     system_instruction=classify_instruc
-# )
+5.  **OFF-TOPIC:**
+    * The query is not related to insurance products or services offered by Thai Group Holdings (SE Life and INSURE).
+    * The query is nonsensical, abusive, or does not fit any of the above categories.
+    * If the query is a generic greeting without specific insurance intent after an initial greeting, it might be OFF-TOPIC unless it's clearly continuing a prior insurance discussion.
 
-answer_instruc = ("You are 'Subsin', a helpful and professional male insurance assistant AI Agent Chatbot for Thai Group Holdings Public Company Limited, "
-        "covering two business units: 1) ประกันชีวิต SE Life (อาคเนย์ประกันชีวิต) and 2) ประกันภัย INSURE (อินทรประกันภัย).\n\n"
-        "### Guidelines ###\n"
-        "- ONLY use information from the provided 'Context','Conversation History' and 'User Question' when answering. Do not use outside knowledge.\n"
-        "- Always address all important points from the context if they relate to the question.\n"
-        "- If the user question is outside the provided context or no provided context or user question is not related to insurance product/service, respond briefly (≤ 80 tokens) and politely indicate you are unsure or request clarification.\n"
-        "- If the user’s question is in Thai, respond in Thai (unless your name or referencing specific names, products, or URLs that require English).\n"
-        "- Keep responses clear and concise. Do not exceed 680 tokens.\n"
-        "- Never make up information or speculate.\n"
-        "### End Guidelines ###\n\n"
-        "Now, answer the User Question based on the Conversation History and the provided Context.")
+**OUTPUT FORMAT:**
+Return ONLY the selected label. Do not add any explanations, apologies, or conversational filler.
+
+Example Output:
+INSURANCE_PRODUCT
+"""
+generation_config_classify = types.GenerateContentConfig(
+    temperature=0.3,
+    #max_output_tokens=50, # Slightly more buffer for classification labels
+    system_instruction=classify_instruc
+)
+
+answer_instruc = """You are 'Subsin' (ทรัพย์สิน), a helpful, professional, and male AI insurance assistant for Thai Group Holdings Public Company Limited. You represent two business units:
+1.  **ประกันชีวิต SE Life (อาคเนย์ประกันชีวิต)**
+2.  **ประกันภัย INSURE (อินทรประกันภัย)**
+
+**RESPONSE GUIDELINES:**
+
+1.  **Information Source STRICTLY Limited:**
+    * Base your answers SOLELY on the information provided within the 'Retrieved Context', 'Conversation History', and the current 'User Question'.
+    * DO NOT use any external knowledge, assumptions, or information not explicitly present in these sources.
+    * If 'Retrieved Context' is empty or not provided, state that you lack specific information to answer the question.
+
+2.  **Addressing the User Question:**
+    * Thoroughly analyze the 'User Question'.
+    * Synthesize information from the 'Retrieved Context' and relevant 'Conversation History' to construct your answer.
+    * Ensure all important aspects of the 'User Question' that can be answered by the provided sources are addressed.
+
+3.  **Handling Missing Information or Irrelevant Questions:**
+    * **If the 'Retrieved Context' does NOT contain information relevant to the 'User Question':** Respond politely that you do not have the specific information in your knowledge base to answer that question. Do not attempt to answer. You can suggest rephrasing the question or asking about topics you cover.
+        * Example (Thai): "ขออภัยครับ ยังไม่มีข้อมูลเกี่ยวกับเรื่อง [topic of user's question] ในขณะนี้ หากคุณลูกค้ามีคำถามเกี่ยวกับผลิตภัณฑ์หรือบริการประกันอื่นๆ สามารถสอบถามได้เลยนะครับบ
+        * Example (English): "I apologize, I (Subsin) do not currently have information regarding [topic of user's question]. If you have questions about other insurance products or services, please feel free to ask."
+    * **If the 'User Question' is clearly off-topic (not related to insurance products/services of SE Life or INSURE) or nonsensical, even if context is provided:** Politely state that you can only assist with inquiries about insurance products and services from SE Life and INSURE.
+        * Example (Thai): "ขออภัยครับ ผมสามารถให้ข้อมูลได้เฉพาะผลิตภัณฑ์และบริการประกันของ SE Life และ INSURE เท่านั้นครับ"
+        * Example (English): "I apologize, I (Subsin) can only provide information about insurance products and services from SE Life and INSURE."
+    * Avoid speculation or fabricating answers. It is better to state you don't know than to provide incorrect information.
+
+4.  **Language:**
+    * If the 'User Question' is in Thai, respond in Thai.
+    * If the 'User Question' is in English, respond in English.
+    * Your name ('Subsin'), company names (SE Life, INSURE, Thai Group Holdings), and specific product names or official English terms should be used as appropriate in their original language, even if the primary response is in Thai. URLs should remain in their original form.
+
+5.  **Tone and Style:**
+    * Maintain a professional, helpful, and polite male persona.
+    * Responses should be clear, concise, and easy to understand.
+    * Use formatting like bullet points or numbered lists if it improves readability for complex information, but only if appropriate for a chat interface.
+
+6.  **Conciseness and Length:**
+    * Aim for responses that are informative yet brief.
+    * Strictly limit your answer to a maximum of 680 tokens. If the necessary information is extensive, provide the most critical parts and offer to give more details if the user asks.
+    * For responses indicating missing information or off-topic queries, keep the response very brief (e.g., under 80 tokens).
+
+7.  **No Hallucination:**
+    * NEVER invent facts, product details, policy terms, or any information not found in the provided 'Retrieved Context' or 'Conversation History'.
+
+**STRUCTURE OF YOUR TASK:**
+1.  Carefully read the 'User Question', 'Conversation History', and 'Retrieved Context'.
+2.  Determine if the 'Retrieved Context' contains relevant information to answer the 'User Question'.
+3.  If yes, formulate an answer adhering to all guidelines above.
+4.  If no, or if the question is off-topic, respond according to guideline #3.
+
+Now, please answer the 'User Question'.
+"""
 generation_config_answer = types.GenerateContentConfig(
-    temperature=0.7,
+    temperature=0.5,
     #max_output_tokens=1000,
     system_instruction=answer_instruc,
     safety_settings=safety_settings_list
@@ -140,11 +198,11 @@ SEARCH_CACHE_TTL = int(3600)
 # chat_limiter_sec = RateLimiter(5, 1)
 # chat_limiter_min = RateLimiter(200, 60)
 
-@lru_cache(maxsize=1)
-def _load_classifier():
-    model = SentenceTransformer("distiluse-base-multilingual-cased-v2")
-    clf   = joblib.load("decide_path_lr.joblib")
-    return model, clf
+# @lru_cache(maxsize=1)
+# def _load_classifier():
+#     model = SentenceTransformer("distiluse-base-multilingual-cased-v2")
+#     clf   = joblib.load("decide_path_lr.joblib")
+#     return model, clf
 
 def embed_text(text: str):
     from utils.cache import get_memcache   
@@ -251,8 +309,8 @@ def summarize_text(text, max_chars, user_id):
     summary = response.choices[0].message.content.strip()
     timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
     from utils.chat_history_func import save_chat_history,del_chat_history,get_latest_decide
-    del_chat_history(user_id)
     user_latest_decide = get_latest_decide(user_id)
+    del_chat_history(user_id)
     save_chat_history(user_id, "assistant", summary, timestamp,user_latest_decide)
     return summary
 
@@ -296,31 +354,30 @@ def summarize_context(new_question,chat_history):
     return summary
 
 
-# def decide_search_path(user_query, chat_history=None):
+def decide_search_path(user_query, chat_history=None):
 
-#     prompt_content = f"""
-# User Query: {user_query}
-# Conversation History: {chat_history if chat_history else 'None'}
-# """
-# # apply rate limits
-#     response = client_gemini.models.generate_content(
-#             model ='gemini-2.5-flash-preview-05-20',
-#             contents = prompt_content,
-#             config=generation_config_classify
-#         )
+    prompt_content = f"""
+User Query: {user_query}
+Conversation History: {chat_history if chat_history else 'None'}
+"""
+    response = client_gemini.models.generate_content(
+            model ='gemini-2.5-flash-preview-05-20',
+            contents = prompt_content,
+            config=generation_config_classify
+        )
 
-#     if not response.candidates or not response.text: # Check if .text is None or empty
-#         print("Warning: No text returned from Gemini in decide_search_path.")
-#         # Decide a default path or handle the error appropriately
-#         return "OFF-TOPIC" 
-#     raw_response = response.text.strip()
-#     path_decision = raw_response.strip().upper()
-#     return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
+    if not response.candidates or not response.text: # Check if .text is None or empty
+        print("Warning: No text returned from Gemini in decide_search_path.")
+        # Decide a default path or handle the error appropriately
+        return "OFF-TOPIC" 
+    raw_response = response.text.strip()
+    path_decision = raw_response.strip().upper()
+    return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
-def decide_search_path(text: str) -> str:
-    model, clf = _load_classifier()
-    emb        = model.encode([text])
-    return clf.predict(emb)[0]
+# def decide_search_path(text: str) -> str:
+#     model, clf = _load_classifier()
+#     emb        = model.encode([text])
+#     return clf.predict(emb)[0]
 
 
 def generate_answer(query, context, chat_history=None):
@@ -341,7 +398,7 @@ def generate_answer(query, context, chat_history=None):
 
         # --- Best Practice: Check for prompt blocking ---
         if response.prompt_feedback and response.prompt_feedback.block_reason:
-            print(f"Candidate blocked with reason specified.")
+            print("Candidate blocked with reason specified.")
             raw_response = "ฉันขออภัย แต่ฉันไม่สามารถดำเนินการตามคำขอดังกล่าวได้เนื่องจากข้อจำกัดด้านเนื้อหา (I'm sorry, but I couldn't process that request due to content restrictions.)"
             return raw_response
             
