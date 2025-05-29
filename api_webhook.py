@@ -20,7 +20,7 @@ from linebot.v3.messaging import (
 
 
 
-from utils.clients import get_line_api                    # ← new
+from utils.clients import get_line_api                    
 from utils.cache import get_memcache
 from utils.chat_history_func import (
     get_conversation_state, del_chat_history, save_chat_history
@@ -88,7 +88,7 @@ def get_async_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         http2=True,
         timeout=httpx.Timeout(5.0),
-        transport=httpx.HTTPTransport(retries=3)  # automatic 3-try back-off
+        transport=httpx.AsyncHTTPTransport(retries=3)  # automatic 3-try back-off
     )
 
 async def close_async_client() -> None:
@@ -243,10 +243,19 @@ async def _async_handle_message_logic(event: MessageEvent):
     now       = time.time()
 
     if cur:
-        buf = pickle.loads(cur)
-        buf["messages"].append(message_text)
-        buf["reply_token"] = reply_token
-        buf["timestamp"]   = now
+        try:
+            buf = pickle.loads(cur)
+            buf["messages"].append(message_text)
+            buf["reply_token"] = reply_token # Always update with the latest reply_token
+            buf["timestamp"]   = now
+        except (pickle.UnpicklingError, EOFError, AttributeError, ImportError, IndexError) as e:
+            logger.error(f"[{user_id}] Failed to unpickle existing buffer. Resetting buffer. Error: {e}", exc_info=True)
+            # Buffer is corrupted, reset it
+            buf = {"messages": [message_text],
+                   "reply_token": reply_token,
+                   "timestamp":  now}
+            # schedule the batch processor once if we are resetting due to corruption
+            asyncio.create_task(process_message_batch(user_id))
     else:                                    # first message in a burst
         buf = {"messages": [message_text],
                "reply_token": reply_token,
@@ -256,11 +265,11 @@ async def _async_handle_message_logic(event: MessageEvent):
     try:
         pickled_buf = pickle.dumps(buf)
         # The expiry is MESSAGE_WINDOW + 3 = 5 seconds
-        set_result = mc_client.set(cache_key, pickled_buf, MESSAGE_WINDOW + 3) 
+        set_result = mc_client.set(cache_key, pickled_buf, MESSAGE_WINDOW + 3)
 
-        if set_result:
+        if set_result: # mcclient.set returns True on success, False on failure for Pymemcache
             logger.info(f"[{user_id}] Message buffer successfully SET in cache. Key: {cache_key}. Expires in: {MESSAGE_WINDOW + 3}s. Data size: {len(pickled_buf)} bytes.")
-           
+
         else:
             # This else block might also be hit if set_result is None or other non-True falsy values
             logger.error(f"[{user_id}] FAILED to SET message buffer in cache. mc.set returned: {set_result}. Key: {cache_key}. Check Memcached server status and connection.")
@@ -301,7 +310,10 @@ async def webhook(
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    logger.info("Shutdown event triggered. Closing async client and ThreadPoolExecutor.")
     await close_async_client()
+    _EXEC.shutdown(wait=True) # Ensure threads complete
+    logger.info("ThreadPoolExecutor shut down.")
 
 
 # uvicorn api_webhook:app --host 0.0.0.0 --port 8000 --reload

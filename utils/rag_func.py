@@ -54,10 +54,10 @@ safety_settings_list = [
 ]
 
 # Configuration for Gemini API calls
-classify_instruc = """You are a precise text classification model. Your task is to assign a single, most appropriate label to the user's query based on the provided 'User Query' and 'Conversation History'.
+classify_instruc = """You are a precise text classification model. Your primary task is to assign a single, most appropriate label to the user's query. **Crucially, you MUST consider the 'Conversation History' to understand the context.**
 
 **TASK:**
-Analyze the 'User Query' in the context of the 'Conversation History' (if any) and select ONE label from the following options:
+Analyze the 'User Query' in the context of the 'Conversation History' and select ONE label from the following options:
 - INSURANCE_SERVICE
 - INSURANCE_PRODUCT
 - CONTINUE CONVERSATION
@@ -67,9 +67,12 @@ Analyze the 'User Query' in the context of the 'Conversation History' (if any) a
 **LABEL DEFINITIONS & GUIDELINES:**
 
 1.  **CONTINUE CONVERSATION:**
-    * The user is asking a direct follow-up question related to the immediately preceding turns in the 'Conversation History'.
-    * The user explicitly references information or entities previously discussed in the 'Conversation History'.
-    * Example: If the assistant just provided details about "Product A", and the user asks "What is the premium for Product A?", this is CONTINUE_CONVERSATION.
+    *   The user is asking a direct follow-up question related to an item or topic explicitly mentioned in the *immediately preceding turns* of the 'Conversation History'.
+    *   **If the 'Conversation History' shows the bot recently presented options (e.g., "Product X", "Service Y"), and the 'User Query' is 'อันนี้', 'อันนั้น', 'ตัวนี้', 'ตัวนั้น' (this one, that one, this item, that item) or similar, AND the user follows up with a specific question ABOUT that implicitly selected item (e.g., "อันนี้ราคาเท่าไหร่?" - "How much is this one?"), label as CONTINUE CONVERSATION.**
+        *   Example:
+            *   Bot: "We offer Plan A and Plan B."
+            *   User: "อันนี้มีรายละเอียดอะไรบ้าง" (What are the details for this one?) -> CONTINUE CONVERSATION (referring to Plan A or B based on implicit focus or if it was the last one detailed)
+        * Example: If the assistant just provided details about "Product A", and the user asks "What is the premium for Product A?", this is CONTINUE CONVERSATION.
 
 2.  **INSURANCE_SERVICE:**
     * The query is specifically about insurance-related services, processes, or support.
