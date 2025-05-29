@@ -14,14 +14,13 @@ db = mongo_client[mongo_db]
 conversations = db[mongo_table]
 
 
-def get_conversation_state(user_id, history_limit=20, summary_max_chars=3500):
+def get_conversation_state(user_id, summary_max_chars=2800):
     from utils.rag_func import summarize_text
 
     # 1) Single query for the most recent messages
     msgs = list(conversations.find(
         {"user_id": user_id},
-        sort=[("timestamp", -1)],
-        limit=history_limit
+        sort=[("timestamp", -1)]
     ))
     if not msgs:
         return "", None, ""
