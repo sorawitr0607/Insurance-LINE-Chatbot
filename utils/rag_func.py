@@ -75,10 +75,10 @@ Analyze the 'User Query' in the context of the 'Conversation History' and select
             * User: "อันนี้มีรายละเอียดอะไรบ้าง" (What are the details for this one?) -> CONTINUE CONVERSATION
         * Example (Order/Comparison):
             * Bot: "Here are insurance options: Option Alpha (ประกันอัลฟ่า) and Option Beta (ประกันเบต้า)."
-            * User: "ช่วยเปรียบเทียบ อันแรกกับอันสอง แบบสั้นๆหน่อย" (Please briefly compare the first and second one.) -> CONTINUE CONVERSATION
+            * User: "ช่วยเปรียบเทียบ ประกันอันแรกกับอันที่สอง แบบสั้นๆหน่อย" (Please briefly compare the first and second one.) -> CONTINUE CONVERSATION
         * Example (Specific Question about ordered item):
             * Bot: "We have Product Shield and Product Guard."
-            * User: "อันแรกคุ้มครองอะไรบ้าง" (What does the first one cover?) -> CONTINUE CONVERSATION
+            * User: "ประกันอันแรกคุ้มครองอะไรบ้าง" (What does the first one cover?) -> CONTINUE CONVERSATION
     * If the assistant just provided details about "Product A", and the user asks "What is the premium for Product A?", this is CONTINUE CONVERSATION.
 
 2.  **INSURANCE_SERVICE:**
