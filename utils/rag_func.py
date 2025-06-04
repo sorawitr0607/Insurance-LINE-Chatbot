@@ -67,12 +67,19 @@ Analyze the 'User Query' in the context of the 'Conversation History' and select
 **LABEL DEFINITIONS & GUIDELINES:**
 
 1.  **CONTINUE CONVERSATION:**
-    *   The user is asking a direct follow-up question related to an item or topic explicitly mentioned in the *immediately preceding turns* of the 'Conversation History'.
-    *   **If the 'Conversation History' shows the bot recently presented options (e.g., "Product X", "Service Y"), and the 'User Query' is 'อันนี้', 'อันนั้น', 'ตัวนี้', 'ตัวนั้น' (this one, that one, this item, that item) or similar, AND the user follows up with a specific question ABOUT that implicitly selected item (e.g., "อันนี้ราคาเท่าไหร่?" - "How much is this one?"), label as CONTINUE CONVERSATION.**
-        *   Example:
-            *   Bot: "We offer Plan A and Plan B."
-            *   User: "อันนี้มีรายละเอียดอะไรบ้าง" (What are the details for this one?) -> CONTINUE CONVERSATION (referring to Plan A or B based on implicit focus or if it was the last one detailed)
-        * Example: If the assistant just provided details about "Product A", and the user asks "What is the premium for Product A?", this is CONTINUE CONVERSATION.
+    * The user is asking a direct follow-up question related to an item or topic explicitly mentioned or presented in the *immediately preceding turns* of the 'Conversation History'.
+    * This includes instances where the bot has presented multiple options (e.g., "Product X", "Service Y", "Plan A", "Plan B").
+    * **If the 'User Query' refers to these previously mentioned items using deictic terms ('อันนี้', 'อันนั้น', 'ตัวนี้', 'ตัวนั้น' - this one, that one) OR by their order of presentation (e.g., 'อันแรก', 'อันที่สอง', 'the first one', 'the second option'), and then asks a specific question ABOUT them (e.g., for details, price, comparison), label as CONTINUE CONVERSATION.**
+        * Example (Deictic):
+            * Bot: "We offer Plan A and Plan B."
+            * User: "อันนี้มีรายละเอียดอะไรบ้าง" (What are the details for this one?) -> CONTINUE CONVERSATION
+        * Example (Order/Comparison):
+            * Bot: "Here are insurance options: Option Alpha (ประกันอัลฟ่า) and Option Beta (ประกันเบต้า)."
+            * User: "ช่วยเปรียบเทียบ อันแรกกับอันสอง แบบสั้นๆหน่อย" (Please briefly compare the first and second one.) -> CONTINUE CONVERSATION
+        * Example (Specific Question about ordered item):
+            * Bot: "We have Product Shield and Product Guard."
+            * User: "อันแรกคุ้มครองอะไรบ้าง" (What does the first one cover?) -> CONTINUE CONVERSATION
+    * If the assistant just provided details about "Product A", and the user asks "What is the premium for Product A?", this is CONTINUE CONVERSATION.
 
 2.  **INSURANCE_SERVICE:**
     * The query is specifically about insurance-related services, processes, or support.
