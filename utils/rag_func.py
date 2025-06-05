@@ -25,21 +25,12 @@ load_dotenv()
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
 # chat_model = os.getenv("TYPHOON_CHAT_MODEL")
 # classify_model = os.getenv("OPENAI_CHAT_MODEL")
+chat_model = os.getenv("OPENAI_CHAT_MODEL")
 summary_model = os.getenv("OPENAI_CHAT_MODEL")
 openai_api = os.getenv("OPENAI_API_KEY")
 # typhoon_api = os.getenv("TYPHOON_API_KEY")
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
-# client_gemini = genai.Client(api_key=gemini_api_key)
-
-# client = OpenAI(
-#     api_key=openai_api,
-# )
-
-# client_chat = OpenAI(
-#     api_key=typhoon_api,
-#     base_url="https://api.opentyphoon.ai/v1"
-# )
 
 DEFAULT_SAFETY_SETTINGS = {
     types.HarmCategory.HARM_CATEGORY_HARASSMENT: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
@@ -370,17 +361,29 @@ def decide_search_path(user_query, chat_history=None):
 User Query: {user_query}
 Conversation History: {chat_history if chat_history else 'None'}
 """
-    response = client_gemini.models.generate_content(
-            model ='gemini-2.5-flash-preview-05-20',
-            contents = prompt_content,
-            config=generation_config_classify
-        )
+    # response = client_gemini.models.generate_content(
+    #         model ='gemini-2.5-flash-preview-05-20',
+    #         contents = prompt_content,
+    #         config=generation_config_classify
+    #     )
 
-    if not response.candidates or not response.text: # Check if .text is None or empty
-        print("Warning: No text returned from Gemini in decide_search_path.")
-        # Decide a default path or handle the error appropriately
-        return "OFF-TOPIC" 
-    raw_response = response.text.strip()
+    # if not response.candidates or not response.text: # Check if .text is None or empty
+    #     print("Warning: No text returned from Gemini in decide_search_path.")
+    #     # Decide a default path or handle the error appropriately
+    #     return "OFF-TOPIC" 
+    # raw_response = response.text.strip()
+    # path_decision = raw_response.strip().upper()
+    # return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
+
+    response = client.chat.completions.create(
+        model=chat_model,   # or your desired mini/4.1 model
+        messages=[
+            {"role": "system", "content": classify_instruc},
+            {"role": "user", "content": prompt_content}
+        ],
+        temperature=0.3
+    )
+    raw_response = response.choices[0].message.content.strip()
     path_decision = raw_response.strip().upper()
     return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
@@ -391,45 +394,67 @@ Conversation History: {chat_history if chat_history else 'None'}
 
 
 def generate_answer(query, context, chat_history=None):
-    gemini_prompt_parts = []
-    if chat_history:
-        gemini_prompt_parts.append(f"Conversation History:\n{chat_history}\n")
+    # gemini_prompt_parts = []
+    # if chat_history:
+    #     gemini_prompt_parts.append(f"Conversation History:\n{chat_history}\n")
 
-    gemini_prompt_parts.append(f"Context:\n{context if context else 'No specific context provided.'}\n")
-    gemini_prompt_parts.append(f"User Question:\n{query}")
+    # gemini_prompt_parts.append(f"Context:\n{context if context else 'No specific context provided.'}\n")
+    # gemini_prompt_parts.append(f"User Question:\n{query}")
 
-    full_prompt_for_gemini = "\n".join(gemini_prompt_parts)
-    try:
-        response = client_gemini.models.generate_content(
-            model ='gemini-2.5-flash-preview-05-20',
-            contents = full_prompt_for_gemini,
-            config=generation_config_answer
-        )
+    # full_prompt_for_gemini = "\n".join(gemini_prompt_parts)
+    # try:
+    #     response = client_gemini.models.generate_content(
+    #         model ='gemini-2.5-flash-preview-05-20',
+    #         contents = full_prompt_for_gemini,
+    #         config=generation_config_answer
+    #     )
 
-        # --- Best Practice: Check for prompt blocking ---
-        if response.prompt_feedback and response.prompt_feedback.block_reason:
-            print("Candidate blocked with reason specified.")
-            raw_response = "ฉันขออภัย แต่ฉันไม่สามารถดำเนินการตามคำขอดังกล่าวได้เนื่องจากข้อจำกัดด้านเนื้อหา (I'm sorry, but I couldn't process that request due to content restrictions.)"
-            return raw_response
+    #     # --- Best Practice: Check for prompt blocking ---
+    #     if response.prompt_feedback and response.prompt_feedback.block_reason:
+    #         print("Candidate blocked with reason specified.")
+    #         raw_response = "ฉันขออภัย แต่ฉันไม่สามารถดำเนินการตามคำขอดังกล่าวได้เนื่องจากข้อจำกัดด้านเนื้อหา (I'm sorry, but I couldn't process that request due to content restrictions.)"
+    #         return raw_response
             
-        candidate = response.candidates[0]
+    #     candidate = response.candidates[0]
 
 
-        if candidate.safety_ratings:
-            for rating in candidate.safety_ratings:
-                # Assuming you want to block if probability is MEDIUM or HIGH
-                if rating.probability >= types.HarmProbability.MEDIUM:
-                    print(f"Candidate blocked due to safety rating: {rating.category} - {rating.probability}")
-                    raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
-                    return raw_response
+    #     if candidate.safety_ratings:
+    #         for rating in candidate.safety_ratings:
+    #             # Assuming you want to block if probability is MEDIUM or HIGH
+    #             if rating.probability >= types.HarmProbability.MEDIUM:
+    #                 print(f"Candidate blocked due to safety rating: {rating.category} - {rating.probability}")
+    #                 raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
+    #                 return raw_response
                 
-        return response.text.strip()
+    #     return response.text.strip()
 
 
+    # except Exception as e:
+    #     print(f"Error Type: {type(e)}")
+    #     print(f"Error Message: {e}")
+    #     raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้ในขณะนี้ โปรดลองอีกครั้ง"
+    #     return raw_response
+        # raw_response remains the default error message
+
+    prompt_parts = []
+    if chat_history:
+        prompt_parts.append(f"Conversation History:\n{chat_history}\n")
+    prompt_parts.append(f"Context:\n{context if context else 'No specific context provided.'}\n")
+    prompt_parts.append(f"User Question:\n{query}")
+
+    full_prompt_for_chatgpt = "\n".join(prompt_parts)
+    try:
+        response = client.chat.completions.create(
+            model=chat_model,  # or your desired mini/4.1 model
+            messages=[
+                {"role": "system", "content": answer_instruc},
+                {"role": "user", "content": full_prompt_for_chatgpt}
+            ],
+            temperature=0.5
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"Error Type: {type(e)}")
         print(f"Error Message: {e}")
-        raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้ในขณะนี้ โปรดลองอีกครั้ง"
-        return raw_response
-        # raw_response remains the default error message
+        return "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้ในขณะนี้ โปรดลองอีกครั้ง"
 
