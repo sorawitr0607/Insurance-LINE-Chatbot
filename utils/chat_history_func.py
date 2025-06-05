@@ -44,10 +44,13 @@ def get_conversation_state(user_id, summary_max_chars=2800):
 
 def get_latest_decide(user_id, limit=1):
     messages = list(conversations.find(
-        {"user_id": user_id},
+        {"user_id": user_id,
+         "path_decision": {"$ne": "OFF-TOPIC"}},
         sort=[("timestamp", -1)],
         limit=limit
     ))
+    if not messages:
+        return "OFF-TOPIC"
     messages.reverse()
     latest_decide = "\n".join([f"{m['path_decision']}" for m in messages])
     return latest_decide

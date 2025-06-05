@@ -148,16 +148,20 @@ async def _run_rag_pipeline(user_id: str, buffer_data: dict[str, any]) -> tuple[
         elif path_decision == "INSURANCE_PRODUCT":
             context = await _to_thread(get_search_results, user_query, 7, 0, False)
         elif path_decision == "CONTINUE CONVERSATION":
-            summary_ctx = await _to_thread(summarize_context, user_query, latest_user)
-            service_flag = latest_decision == "INSURANCE_SERVICE"
-            context = await _to_thread(
-                get_search_results,
-                summary_ctx,
-                3 if service_flag else 7,
-                0,
-                service_flag,
-            )
-            path_decision = "INSURANCE_SERVICE" if service_flag else "INSURANCE_PRODUCT" # Update path_decision if it was "CONTINUE"
+            if latest_decision!='OFF-TOPIC':
+                summary_ctx = await _to_thread(summarize_context, user_query, latest_user)
+                service_flag = latest_decision == "INSURANCE_SERVICE"
+                context = await _to_thread(
+                    get_search_results,
+                    summary_ctx,
+                    3 if service_flag else 7,
+                    0,
+                    service_flag,
+                )
+                path_decision = "INSURANCE_SERVICE" if service_flag else "INSURANCE_PRODUCT" # Update path_decision if it was "CONTINUE"
+            else:
+                context = ""
+                path_decision = 'OFF-TOPIC'
         elif path_decision == "MORE":
             context = await _to_thread(get_search_results, user_query, 7, 7, False)
         else:  # OFF-TOPIC
