@@ -95,7 +95,7 @@ async def close_async_client() -> None:
     """Call this in FastAPI's shutdown event to close keep-alive connections."""
     await get_async_client().aclose()
 
-async def _send_loading_indicator(user_id: str, seconds: int = 20) -> None:
+async def _send_loading_indicator(user_id: str, seconds: int = 40) -> None:
     url = "https://api.line.me/v2/bot/chat/loading/start"
     headers = {
         "Authorization": f"Bearer {os.getenv('LINE_CHANNEL_ACCESS_TOKEN')}",
