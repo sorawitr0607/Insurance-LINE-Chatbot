@@ -1,4 +1,4 @@
-🧠 LINE RAG API
+# 🧠 LINE RAG API
 A retrieval‑augmented chatbot for LINE that helps insurance customers get concise answers from proprietary knowledge bases.
 
 
