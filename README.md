@@ -68,3 +68,19 @@ graph TD
 | `decide_path_lr.joblib`      | Logistic‑regression model to classify user queries into retrieval paths.                                                                                                             |
 | `icon_pic/`                  | PNG icons used in quick‑reply buttons.                                                                                                                                               |
 | `requirements.txt`           | Python dependencies.                                                                                                                                                                 |
+---
+
+## 🛠️ Installation
+
+**For Users** 
+
+pip install -r requirements.txt
+
+Create a .env file and set your LINE credentials (LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN), Azure Search keys (AZURE_SEARCH_ENDPOINT, AZURE_SEARCH_KEY, AZURE_SEARCH_INDEX, AZURE_SEARCH_INDEX_INSURANCE_SERVICE), OpenAI/Gemini API keys, memcached connection parameters and MongoDB connection strings. Then run:
+
+uvicorn api_webhook:app --host 0.0.0.0 --port 8000
+
+Expose /callback to your LINE bot’s webhook URL.
+
+
+
