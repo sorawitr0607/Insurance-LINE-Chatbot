@@ -56,3 +56,15 @@ graph TD
     A --> D[decide_path_lr.joblib]
     A --> E[requirements.txt]
     A --> F[icon_pic/]
+```
+
+| Path                         | Description                                                                                                                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `api_webhook.py`             | Main FastAPI application.  Handles the LINE webhook, buffers messages, runs the RAG pipeline and replies via the LINE API.  Contains FAQ answers and quick‑reply button definitions. |
+| `utils/clients.py`           | Factories for Azure Search, OpenAI/Gemini and LINE API clients.                                                                                                                      |
+| `utils/cache.py`             | Memcached client using environment variables.                                                                                                                                        |
+| `utils/chat_history_func.py` | Retrieves, summarises and persists chat history in MongoDB.                                                                                                                          |
+| `utils/rag_func.py`          | Contains classification prompts, response prompts and functions to decide the retrieval path, summarise context, search and generate answers.                                        |
+| `decide_path_lr.joblib`      | Logistic‑regression model to classify user queries into retrieval paths.                                                                                                             |
+| `icon_pic/`                  | PNG icons used in quick‑reply buttons.                                                                                                                                               |
+| `requirements.txt`           | Python dependencies.                                                                                                                                                                 |
