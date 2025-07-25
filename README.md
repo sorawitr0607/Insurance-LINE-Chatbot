@@ -22,7 +22,7 @@ _A retrieval‑augmented chatbot for LINE that helps insurance customers get con
 
 ## 📄 Description
 
-`LINE_RAG_API` is a production‑grade retrieval‑augmented generation (RAG) service that powers a LINE messaging chatbot for an insurance provider.  It combines modern **FastAPI** web services, **asynchronous concurrency**, **vector search** over Azure Cognitive Search and **large‑language models** (OpenAI & Google Gemini) to deliver up‑to‑date answers from internal knowledge bases.  Conversations are cached for seamless multi‑turn interactions and stored for analytics.
+`Insurance-LINE-Chatbot` is a production‑grade retrieval‑augmented generation (RAG) service that powers a LINE messaging chatbot for an insurance provider.  It combines modern **FastAPI** web services, **asynchronous concurrency**, **vector search** over Azure Cognitive Search and **large‑language models** (OpenAI & Google Gemini) to deliver up‑to‑date answers from internal knowledge bases.  Conversations are cached for seamless multi‑turn interactions and stored for analytics.
 
 The pipeline works as follows:
 
