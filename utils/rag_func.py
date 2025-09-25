@@ -12,10 +12,10 @@ from zoneinfo import ZoneInfo
 import hashlib
 from google.genai import types
 
-from utils.clients import get_search_client, get_service_search_client,get_openai,get_gemini
+from utils.clients import get_search_client, get_service_search_client,get_openai #,get_gemini
 
 # inside the function: 
-client_gemini = get_gemini()
+# client_gemini = get_gemini()
 client = get_openai()
 search_client = get_search_client()
 service_search_client = get_service_search_client()
@@ -24,12 +24,12 @@ load_dotenv()
 
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
 # chat_model = os.getenv("TYPHOON_CHAT_MODEL")
-# classify_model = os.getenv("OPENAI_CHAT_MODEL")
+classify_model = os.getenv("OPENAI_CHAT_MODEL")
 chat_model = os.getenv("OPENAI_CHAT_MODEL")
 summary_model = os.getenv("OPENAI_CHAT_MODEL")
 openai_api = os.getenv("OPENAI_API_KEY")
 # typhoon_api = os.getenv("TYPHOON_API_KEY")
-gemini_api_key = os.getenv("GEMINI_API_KEY")
+# gemini_api_key = os.getenv("GEMINI_API_KEY")
 
 
 DEFAULT_SAFETY_SETTINGS = {
@@ -376,7 +376,7 @@ Conversation History: {chat_history if chat_history else 'None'}
     # return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
     response = client.chat.completions.create(
-        model=chat_model,   # or your desired mini/4.1 model
+        model=classify_model,   # or your desired mini/4.1 model
         messages=[
             {"role": "system", "content": classify_instruc},
             {"role": "user", "content": prompt_content}

@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from openai import OpenAI
-from google import genai
+# from google import genai
 from linebot.v3.messaging import Configuration, ApiClient, MessagingApi
 
 load_dotenv()
@@ -11,7 +11,7 @@ load_dotenv()
 _search_client: SearchClient | None = None
 _service_search_client : SearchClient | None = None
 _openai_client:  OpenAI       | None = None
-_gemini_client:  genai.Client | None = None
+# _gemini_client:  genai.Client | None = None
 _line_api: MessagingApi | None = None
 
 def get_search_client() -> SearchClient:
@@ -38,12 +38,12 @@ def get_openai() -> OpenAI:
         _openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     return _openai_client
 
-def get_gemini() -> genai.Client:
-    global _gemini_client
-    if _gemini_client is None:
-        _gemini_client = genai.Client(
-            api_key=os.getenv("GEMINI_API_KEY"))
-    return _gemini_client
+# def get_gemini() -> genai.Client:
+#     global _gemini_client
+#     if _gemini_client is None:
+#         _gemini_client = genai.Client(
+#             api_key=os.getenv("GEMINI_API_KEY"))
+#     return _gemini_client
 
 def get_line_api() -> MessagingApi:
     """Thread-safe singleton for the LINE Messaging API."""
