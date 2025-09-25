@@ -1,6 +1,4 @@
-# import sys
-# sys.path.append(r"D:\RAG\AZURE\New Deploy (3)\LINE_RAG_API")
-import os, asyncio, logging #, time, pickle
+import os, asyncio, logging
 from typing import Any, DefaultDict
 from collections import defaultdict
 from functools import partial
@@ -12,7 +10,6 @@ import httpx
 from functools import lru_cache
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Header, HTTPException
-# from flask import Flask, request, abort
 from linebot.v3 import WebhookHandler
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from linebot.v3.exceptions import InvalidSignatureError
@@ -23,7 +20,6 @@ from linebot.v3.messaging import (
 
 
 from utils.clients import get_line_api                    
-# from utils.cache import get_memcache
 from utils.chat_history_func import (
     get_conversation_state, del_chat_history, save_chat_history
 )
@@ -42,8 +38,7 @@ logger = logging.getLogger("api_webhook")
 app = FastAPI() # Changed from Flask
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-_EXEC = ThreadPoolExecutor(max_workers=int(os.getenv("MAX_WORKERS")))  
-# mc_client = get_memcache()                 
+_EXEC = ThreadPoolExecutor(max_workers=int(os.getenv("MAX_WORKERS")))                 
 MESSAGE_WINDOW = int(os.getenv("MESSAGE_WINDOW_EXP") or "2")
 
 FAQ_CACHED_ANSWERS = {
@@ -215,20 +210,6 @@ async def process_message_batch(user_id: str) -> None:
         buf["task"] = None
         await _run_rag_pipeline(user_id, buffer_data)
 
-#         cache_key = f"message_buffer:{user_id}"
-#         cached_data = mc_client.get(cache_key)
-        
-#         if not cached_data:
-#             logger.info(f"[{user_id}] process_message_batch: No cached data found after wait. Exiting.")
-#             return
-
-#         buffer_data = pickle.loads(cached_data)
-#         logger.info(f"[{user_id}] process_message_batch: Buffer data retrieved. Calling _run_rag_pipeline.")
-        
-#         await _run_rag_pipeline(user_id, buffer_data) # Correctly awaiting the async function
-        
-#         mc_client.delete(cache_key) # Delete cache only after successful processing
-#         logger.info(f"[{user_id}] process_message_batch: Successfully processed and deleted cache.")
     except Exception as e:
         logger.error(f"[{user_id}] Error in process_message_batch: {e}", exc_info=True)
 
@@ -252,50 +233,10 @@ async def _async_handle_message_logic(event: MessageEvent):
         )
         USER_BUFFERS.pop(user_id, None)
         return
-    
-    # 1) show “typing…” indicator (non-blocking)
+
     asyncio.create_task(_send_loading_indicator(user_id, 20))
 
-    # # 2) append to buffer in Memcached
-    # cache_key = f"message_buffer:{user_id}"
-    # cur       = mc_client.get(cache_key)
-    # now       = time.time()
 
-    # if cur:
-    #     try:
-    #         buf = pickle.loads(cur)
-    #         buf["messages"].append(message_text)
-    #         buf["reply_token"] = reply_token # Always update with the latest reply_token
-    #         buf["timestamp"]   = now
-    #     except (pickle.UnpicklingError, EOFError, AttributeError, ImportError, IndexError) as e:
-    #         logger.error(f"[{user_id}] Failed to unpickle existing buffer. Resetting buffer. Error: {e}", exc_info=True)
-    #         # Buffer is corrupted, reset it
-    #         buf = {"messages": [message_text],
-    #                "reply_token": reply_token,
-    #                "timestamp":  now}
-    #         # schedule the batch processor once if we are resetting due to corruption
-    #         asyncio.create_task(process_message_batch(user_id))
-    # else:                                    # first message in a burst
-    #     buf = {"messages": [message_text],
-    #            "reply_token": reply_token,
-    #            "timestamp":  now}
-    #     # schedule the batch processor once
-    #     asyncio.create_task(process_message_batch(user_id))
-    # try:
-    #     pickled_buf = pickle.dumps(buf)
-    #     # The expiry is MESSAGE_WINDOW + 3 = 5 seconds
-    #     set_result = mc_client.set(cache_key, pickled_buf, MESSAGE_WINDOW + 3)
-
-    #     if set_result: # mcclient.set returns True on success, False on failure for Pymemcache
-    #         logger.info(f"[{user_id}] Message buffer successfully SET in cache. Key: {cache_key}. Expires in: {MESSAGE_WINDOW + 3}s. Data size: {len(pickled_buf)} bytes.")
-
-    #     else:
-    #         # This else block might also be hit if set_result is None or other non-True falsy values
-    #         logger.error(f"[{user_id}] FAILED to SET message buffer in cache. mc.set returned: {set_result}. Key: {cache_key}. Check Memcached server status and connection.")
-    # except Exception as e_set:
-    #     logger.error(f"[{user_id}] EXCEPTION during mc.set for {cache_key}: {e_set}", exc_info=True)
-    
-    # Buffer this message
     buf = USER_BUFFERS[user_id]
     buf["messages"].append(message_text)
     buf["reply_token"] = reply_token  # keep latest so we can reply

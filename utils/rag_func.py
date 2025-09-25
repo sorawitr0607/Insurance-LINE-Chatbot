@@ -1,11 +1,5 @@
 import os
-# import pickle
-# import threading
-# import time
-# from functools import lru_cache
 from dotenv import load_dotenv
-# import joblib
-# from sentence_transformers import SentenceTransformer
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -23,12 +17,10 @@ service_search_client = get_service_search_client()
 load_dotenv()
 
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
-# chat_model = os.getenv("TYPHOON_CHAT_MODEL")
 classify_model = os.getenv("OPENAI_CHAT_MODEL")
 chat_model = os.getenv("OPENAI_CHAT_MODEL")
 summary_model = os.getenv("OPENAI_CHAT_MODEL")
 openai_api = os.getenv("OPENAI_API_KEY")
-# typhoon_api = os.getenv("TYPHOON_API_KEY")
 # gemini_api_key = os.getenv("GEMINI_API_KEY")
 
 
@@ -161,67 +153,18 @@ generation_config_answer = types.GenerateContentConfig(
     safety_settings=safety_settings_list
 )
 
-# # Azure AI Search setup
-# search_client = SearchClient(
-#     endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
-#     index_name=os.getenv("AZURE_SEARCH_INDEX"),
-#     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
-# )
-
-# service_search_client = SearchClient(
-#     endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
-#     index_name=os.getenv("AZURE_SEARCH_INDEX_INSURANCE_SERVICE"),
-#     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
-# )
-
-# EMBED_CACHE_TTL = int(24 * 3600)
-# SEARCH_CACHE_TTL = int(3600)
-
-# # Rate limiter for Typhoon chat
-# class RateLimiter:
-#     def __init__(self, max_calls: int, period: float):
-#         self.max_calls = max_calls
-#         self.period = period
-#         self.lock = threading.Lock()
-#         self.calls = []  # timestamps
-
-#     def acquire(self):
-#         with self.lock:
-#             now = time.time()
-#             # drop stale entries
-#             self.calls = [t for t in self.calls if t > now - self.period]
-#             if len(self.calls) >= self.max_calls:
-#                 to_wait = self.period - (now - self.calls[0])
-#                 time.sleep(to_wait)
-#             self.calls.append(time.time())
-
-# # enforce both per-second and per-minute limits
-# chat_limiter_sec = RateLimiter(5, 1)
-# chat_limiter_min = RateLimiter(200, 60)
-
-# @lru_cache(maxsize=1)
-# def _load_classifier():
-#     model = SentenceTransformer("distiluse-base-multilingual-cased-v2")
-#     clf   = joblib.load("decide_path_lr.joblib")
-#     return model, clf
 
 def embed_text(text: str):
-    # from utils.cache import get_memcache   
-    # mc_client = get_memcache()
+
     normalized = text.replace("\n", " ").strip()
     normalized = " ".join(normalized.split()).lower()
-    # key = "embed:" + hashlib.md5(normalized.encode("utf-8")).hexdigest()
-    # print(key)
-    # cached = mc_client.get(key)
-    # if cached:
-    #     return pickle.loads(cached)
+
 
     response = client.embeddings.create(
         input=normalized,
         model= embedding_model
     )
     embedding = response.data[0].embedding
-    # mc_client.set(key, pickle.dumps(embedding),EMBED_CACHE_TTL)
     return embedding
 
 def print_results(results):
@@ -247,14 +190,6 @@ def print_results_service(results):
         
 
 def get_search_results(query: str, top_k: int, skip_k:int=0, service: bool = False):
-    # from utils.cache import get_memcache   
-    # mc_client = get_memcache()
-    # normalized = query.strip()
-    # key = f"search:{'svc' if service else 'prd'}:"+hashlib.md5(normalized.encode("utf-8")).hexdigest()+f"|{top_k}|{skip_k}"
-    # print(key)
-    # cached = mc_client.get(key)
-    # if cached:
-    #     return pickle.loads(cached)
 
     vect = embed_text(query)
     vq = VectorizedQuery(
@@ -361,19 +296,7 @@ def decide_search_path(user_query, chat_history=None):
 User Query: {user_query}
 Conversation History: {chat_history if chat_history else 'None'}
 """
-    # response = client_gemini.models.generate_content(
-    #         model ='gemini-2.5-flash-preview-05-20',
-    #         contents = prompt_content,
-    #         config=generation_config_classify
-    #     )
 
-    # if not response.candidates or not response.text: # Check if .text is None or empty
-    #     print("Warning: No text returned from Gemini in decide_search_path.")
-    #     # Decide a default path or handle the error appropriately
-    #     return "OFF-TOPIC" 
-    # raw_response = response.text.strip()
-    # path_decision = raw_response.strip().upper()
-    # return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
     response = client.chat.completions.create(
         model=classify_model,   # or your desired mini/4.1 model
@@ -387,54 +310,9 @@ Conversation History: {chat_history if chat_history else 'None'}
     path_decision = raw_response.strip().upper()
     return path_decision if path_decision in ["INSURANCE_SERVICE","INSURANCE_PRODUCT","CONTINUE CONVERSATION","MORE","OFF-TOPIC"] else "OFF-TOPIC"
 
-# def decide_search_path(text: str) -> str:
-#     model, clf = _load_classifier()
-#     emb        = model.encode([text])
-#     return clf.predict(emb)[0]
 
 
 def generate_answer(query, context, chat_history=None):
-    # gemini_prompt_parts = []
-    # if chat_history:
-    #     gemini_prompt_parts.append(f"Conversation History:\n{chat_history}\n")
-
-    # gemini_prompt_parts.append(f"Context:\n{context if context else 'No specific context provided.'}\n")
-    # gemini_prompt_parts.append(f"User Question:\n{query}")
-
-    # full_prompt_for_gemini = "\n".join(gemini_prompt_parts)
-    # try:
-    #     response = client_gemini.models.generate_content(
-    #         model ='gemini-2.5-flash-preview-05-20',
-    #         contents = full_prompt_for_gemini,
-    #         config=generation_config_answer
-    #     )
-
-    #     # --- Best Practice: Check for prompt blocking ---
-    #     if response.prompt_feedback and response.prompt_feedback.block_reason:
-    #         print("Candidate blocked with reason specified.")
-    #         raw_response = "ฉันขออภัย แต่ฉันไม่สามารถดำเนินการตามคำขอดังกล่าวได้เนื่องจากข้อจำกัดด้านเนื้อหา (I'm sorry, but I couldn't process that request due to content restrictions.)"
-    #         return raw_response
-            
-    #     candidate = response.candidates[0]
-
-
-    #     if candidate.safety_ratings:
-    #         for rating in candidate.safety_ratings:
-    #             # Assuming you want to block if probability is MEDIUM or HIGH
-    #             if rating.probability >= types.HarmProbability.MEDIUM:
-    #                 print(f"Candidate blocked due to safety rating: {rating.category} - {rating.probability}")
-    #                 raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้เนื่องจากหลักเกณฑ์ความปลอดภัยของเนื้อหา (I'm sorry, I cannot provide an answer to that due to content safety guidelines.)"
-    #                 return raw_response
-                
-    #     return response.text.strip()
-
-
-    # except Exception as e:
-    #     print(f"Error Type: {type(e)}")
-    #     print(f"Error Message: {e}")
-    #     raw_response = "ฉันขออภัย ฉันไม่สามารถให้คำตอบได้ในขณะนี้ โปรดลองอีกครั้ง"
-    #     return raw_response
-        # raw_response remains the default error message
 
     prompt_parts = []
     if chat_history:
