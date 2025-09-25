@@ -34,23 +34,17 @@ jobs:
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
-
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: python-app
           path: |
-            release.zip
+            .
             !venv/
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout
@@ -60,17 +54,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: python-app
-
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
-
       
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_C29C01C0EE7C43C39CDA0EAB28F92BD3 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_79BC3A6D1EAC4A02B8E6C9194FC2110A }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5237DD5E7FD349D7B0DF414545FDF285 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_A4C2FC3E75B249AE973A5CA59739533B }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FE8109466F774E728DE18F3F59A1FAB8 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_73AB1000529245A8BE65D4ACDE5F86EB }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
