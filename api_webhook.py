@@ -1,6 +1,8 @@
 # import sys
 # sys.path.append(r"D:\RAG\AZURE\New Deploy (3)\LINE_RAG_API")
-import os, time, asyncio, pickle, logging
+import os, asyncio, logging #, time, pickle
+from typing import Any, DefaultDict
+from collections import defaultdict
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -21,7 +23,7 @@ from linebot.v3.messaging import (
 
 
 from utils.clients import get_line_api                    
-from utils.cache import get_memcache
+# from utils.cache import get_memcache
 from utils.chat_history_func import (
     get_conversation_state, del_chat_history, save_chat_history
 )
@@ -41,13 +43,13 @@ app = FastAPI() # Changed from Flask
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
 _EXEC = ThreadPoolExecutor(max_workers=int(os.getenv("MAX_WORKERS")))  
-mc_client = get_memcache()                 
-MESSAGE_WINDOW = int(os.getenv("MESSAGE_WINDOW_EXP"))
+# mc_client = get_memcache()                 
+MESSAGE_WINDOW = int(os.getenv("MESSAGE_WINDOW_EXP") or "2")
 
 FAQ_CACHED_ANSWERS = {
     "ศูนย์ดูแลลูกค้า": " Se Life : 02-255-5656 \n IN-SURE : 02-636-5656 \n เวลาทำการ : จันทร์ - ศุกร์ 08.30 - 17.00 น",
-    "โปรโมชั่น SE Life" : os.getenv("PROMOTION_SELIFE"),
-    "โปรโมชั่น IN-SURE" : os.getenv("PROMOTION_INSURE"),
+    "โปรโมชั่น SE Life" : os.getenv("PROMOTION_SELIFE") or "ยังไม่มีโปรโมชั่นสำหรับ SE Life ขณะนี้",
+    "โปรโมชั่น IN-SURE" : os.getenv("PROMOTION_INSURE") or "ยังไม่มีโปรโมชั่นสำหรับ IN-SURE ขณะนี้",
     "Line Thai Group" : "ที่เดียวจบ ครบทุกบริการของอาคเนย์ประกันชีวิต เช่น ดูข้อมูลประกัน แก้ไขข้อมูลกรมธรรม์ หรือ แจ้งเคลมประกัน \n เป็นเพื่อนกับ Thai Group ได้เลยที่นี่ https://lin.ee/OGWXtpN "
 }
    
@@ -70,6 +72,8 @@ FAQ_QUICK_REPLY = QuickReply(
 
 # Store the main event loop instance
 main_event_loop = None
+USER_BUFFERS: DefaultDict[str, dict[str, Any]] = defaultdict(lambda: {"messages": [], "reply_token": None, "task": None})
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -106,9 +110,13 @@ async def _send_loading_indicator(user_id: str, seconds: int = 40) -> None:
     await client.post(url, json=payload, headers=headers)
 
 
-async def _run_rag_pipeline(user_id: str, buffer_data: dict[str, any]) -> tuple[str, str]:
+async def _run_rag_pipeline(user_id: str, buffer_data: dict[str, Any]) -> tuple[str, str]| None:
     reply_token = None
     try:
+        if not buffer_data or not buffer_data.get("messages") or not buffer_data.get("reply_token"):
+            logger.warning(f"[{user_id}] Empty buffer_data; aborting pipeline.")
+            return None
+        
         logger.info(f"[{user_id}] Starting RAG pipeline. Buffer: {buffer_data}")
         user_query = " ".join(buffer_data["messages"])
         reply_token = buffer_data["reply_token"] # Assign here
@@ -196,25 +204,31 @@ async def _run_rag_pipeline(user_id: str, buffer_data: dict[str, any]) -> tuple[
         logger.error(f"[{user_id}] Error in _run_rag_pipeline: {e}", exc_info=True)
 
 async def process_message_batch(user_id: str) -> None:
-    buffer_data = None # Initialize buffer_data
+    # buffer_data = None # Initialize buffer_data
     try:
         logger.info(f"[{user_id}] process_message_batch: Waiting for MESSAGE_WINDOW ({MESSAGE_WINDOW}s).")
         await asyncio.sleep(MESSAGE_WINDOW)
+        buf = USER_BUFFERS[user_id]
+        buffer_data = {"messages": buf["messages"][:], "reply_token": buf["reply_token"]}
+        buf["messages"].clear()
+        buf["reply_token"] = None
+        buf["task"] = None
+        await _run_rag_pipeline(user_id, buffer_data)
 
-        cache_key = f"message_buffer:{user_id}"
-        cached_data = mc_client.get(cache_key)
+#         cache_key = f"message_buffer:{user_id}"
+#         cached_data = mc_client.get(cache_key)
         
-        if not cached_data:
-            logger.info(f"[{user_id}] process_message_batch: No cached data found after wait. Exiting.")
-            return
+#         if not cached_data:
+#             logger.info(f"[{user_id}] process_message_batch: No cached data found after wait. Exiting.")
+#             return
 
-        buffer_data = pickle.loads(cached_data)
-        logger.info(f"[{user_id}] process_message_batch: Buffer data retrieved. Calling _run_rag_pipeline.")
+#         buffer_data = pickle.loads(cached_data)
+#         logger.info(f"[{user_id}] process_message_batch: Buffer data retrieved. Calling _run_rag_pipeline.")
         
-        await _run_rag_pipeline(user_id, buffer_data) # Correctly awaiting the async function
+#         await _run_rag_pipeline(user_id, buffer_data) # Correctly awaiting the async function
         
-        mc_client.delete(cache_key) # Delete cache only after successful processing
-        logger.info(f"[{user_id}] process_message_batch: Successfully processed and deleted cache.")
+#         mc_client.delete(cache_key) # Delete cache only after successful processing
+#         logger.info(f"[{user_id}] process_message_batch: Successfully processed and deleted cache.")
     except Exception as e:
         logger.error(f"[{user_id}] Error in process_message_batch: {e}", exc_info=True)
 
@@ -236,49 +250,61 @@ async def _async_handle_message_logic(event: MessageEvent):
                 messages=[TextMessage(text="แชทของคุณถูกรีเซ็ตเรียบร้อยแล้ว")],
             ),
         )
+        USER_BUFFERS.pop(user_id, None)
         return
     
     # 1) show “typing…” indicator (non-blocking)
     asyncio.create_task(_send_loading_indicator(user_id, 20))
 
-    # 2) append to buffer in Memcached
-    cache_key = f"message_buffer:{user_id}"
-    cur       = mc_client.get(cache_key)
-    now       = time.time()
+    # # 2) append to buffer in Memcached
+    # cache_key = f"message_buffer:{user_id}"
+    # cur       = mc_client.get(cache_key)
+    # now       = time.time()
 
-    if cur:
-        try:
-            buf = pickle.loads(cur)
-            buf["messages"].append(message_text)
-            buf["reply_token"] = reply_token # Always update with the latest reply_token
-            buf["timestamp"]   = now
-        except (pickle.UnpicklingError, EOFError, AttributeError, ImportError, IndexError) as e:
-            logger.error(f"[{user_id}] Failed to unpickle existing buffer. Resetting buffer. Error: {e}", exc_info=True)
-            # Buffer is corrupted, reset it
-            buf = {"messages": [message_text],
-                   "reply_token": reply_token,
-                   "timestamp":  now}
-            # schedule the batch processor once if we are resetting due to corruption
-            asyncio.create_task(process_message_batch(user_id))
-    else:                                    # first message in a burst
-        buf = {"messages": [message_text],
-               "reply_token": reply_token,
-               "timestamp":  now}
-        # schedule the batch processor once
-        asyncio.create_task(process_message_batch(user_id))
-    try:
-        pickled_buf = pickle.dumps(buf)
-        # The expiry is MESSAGE_WINDOW + 3 = 5 seconds
-        set_result = mc_client.set(cache_key, pickled_buf, MESSAGE_WINDOW + 3)
+    # if cur:
+    #     try:
+    #         buf = pickle.loads(cur)
+    #         buf["messages"].append(message_text)
+    #         buf["reply_token"] = reply_token # Always update with the latest reply_token
+    #         buf["timestamp"]   = now
+    #     except (pickle.UnpicklingError, EOFError, AttributeError, ImportError, IndexError) as e:
+    #         logger.error(f"[{user_id}] Failed to unpickle existing buffer. Resetting buffer. Error: {e}", exc_info=True)
+    #         # Buffer is corrupted, reset it
+    #         buf = {"messages": [message_text],
+    #                "reply_token": reply_token,
+    #                "timestamp":  now}
+    #         # schedule the batch processor once if we are resetting due to corruption
+    #         asyncio.create_task(process_message_batch(user_id))
+    # else:                                    # first message in a burst
+    #     buf = {"messages": [message_text],
+    #            "reply_token": reply_token,
+    #            "timestamp":  now}
+    #     # schedule the batch processor once
+    #     asyncio.create_task(process_message_batch(user_id))
+    # try:
+    #     pickled_buf = pickle.dumps(buf)
+    #     # The expiry is MESSAGE_WINDOW + 3 = 5 seconds
+    #     set_result = mc_client.set(cache_key, pickled_buf, MESSAGE_WINDOW + 3)
 
-        if set_result: # mcclient.set returns True on success, False on failure for Pymemcache
-            logger.info(f"[{user_id}] Message buffer successfully SET in cache. Key: {cache_key}. Expires in: {MESSAGE_WINDOW + 3}s. Data size: {len(pickled_buf)} bytes.")
+    #     if set_result: # mcclient.set returns True on success, False on failure for Pymemcache
+    #         logger.info(f"[{user_id}] Message buffer successfully SET in cache. Key: {cache_key}. Expires in: {MESSAGE_WINDOW + 3}s. Data size: {len(pickled_buf)} bytes.")
 
-        else:
-            # This else block might also be hit if set_result is None or other non-True falsy values
-            logger.error(f"[{user_id}] FAILED to SET message buffer in cache. mc.set returned: {set_result}. Key: {cache_key}. Check Memcached server status and connection.")
-    except Exception as e_set:
-        logger.error(f"[{user_id}] EXCEPTION during mc.set for {cache_key}: {e_set}", exc_info=True)
+    #     else:
+    #         # This else block might also be hit if set_result is None or other non-True falsy values
+    #         logger.error(f"[{user_id}] FAILED to SET message buffer in cache. mc.set returned: {set_result}. Key: {cache_key}. Check Memcached server status and connection.")
+    # except Exception as e_set:
+    #     logger.error(f"[{user_id}] EXCEPTION during mc.set for {cache_key}: {e_set}", exc_info=True)
+    
+    # Buffer this message
+    buf = USER_BUFFERS[user_id]
+    buf["messages"].append(message_text)
+    buf["reply_token"] = reply_token  # keep latest so we can reply
+
+    # Debounce: cancel a pending batch task and reschedule
+    if task := buf.get("task"):
+        if not task.done():
+            task.cancel()
+    buf["task"] = asyncio.create_task(process_message_batch(user_id))
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event: MessageEvent): # This is a synchronous function #
@@ -289,7 +315,7 @@ def handle_message(event: MessageEvent): # This is a synchronous function #
         logger.info(f"Sync Wrapper: Task for _async_handle_message_logic scheduled on main event loop for user {event.source.user_id}.")
 
     else:
-        logger.error("Sync Wrapper: Main event loop not available. Cannot schedule async task for user {event.source.user_id}.")
+        logger.error(f"Sync Wrapper: Main event loop not available. Cannot schedule async task for user {event.source.user_id}.")
 
     
     
