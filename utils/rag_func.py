@@ -87,9 +87,9 @@ Analyze the 'User Query' in the context of the 'Conversation History' and select
     * Examples: "Show me other similar products.", "Are there any other services related to this?", "What else do you have?"
 
 5.  **OFF-TOPIC:**
+    * If the query is a generic greeting without specific insurance intent after an initial greeting, it might be OFF-TOPIC unless it's clearly continuing a prior insurance discussion.
     * The query is not related to insurance products or services offered by Thai Group Holdings (SE Life and INSURE).
     * The query is nonsensical, abusive, or does not fit any of the above categories.
-    * If the query is a generic greeting without specific insurance intent after an initial greeting, it might be OFF-TOPIC unless it's clearly continuing a prior insurance discussion.
 
 **OUTPUT FORMAT:**
 Return ONLY the selected label. Do not add any explanations, apologies, or conversational filler.
