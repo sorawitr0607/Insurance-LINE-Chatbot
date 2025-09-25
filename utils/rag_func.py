@@ -1,5 +1,5 @@
 import os
-import pickle
+# import pickle
 # import threading
 # import time
 # from functools import lru_cache
@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import hashlib
+# import hashlib
 from google.genai import types
 
 from utils.clients import get_search_client, get_service_search_client,get_openai #,get_gemini
@@ -174,8 +174,8 @@ generation_config_answer = types.GenerateContentConfig(
 #     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
 # )
 
-EMBED_CACHE_TTL = int(24 * 3600)
-SEARCH_CACHE_TTL = int(3600)
+# EMBED_CACHE_TTL = int(24 * 3600)
+# SEARCH_CACHE_TTL = int(3600)
 
 # # Rate limiter for Typhoon chat
 # class RateLimiter:
@@ -206,22 +206,22 @@ SEARCH_CACHE_TTL = int(3600)
 #     return model, clf
 
 def embed_text(text: str):
-    from utils.cache import get_memcache   
-    mc_client = get_memcache()
+    # from utils.cache import get_memcache   
+    # mc_client = get_memcache()
     normalized = text.replace("\n", " ").strip()
     normalized = " ".join(normalized.split()).lower()
-    key = "embed:" + hashlib.md5(normalized.encode("utf-8")).hexdigest()
+    # key = "embed:" + hashlib.md5(normalized.encode("utf-8")).hexdigest()
     # print(key)
-    cached = mc_client.get(key)
-    if cached:
-        return pickle.loads(cached)
+    # cached = mc_client.get(key)
+    # if cached:
+    #     return pickle.loads(cached)
 
     response = client.embeddings.create(
         input=normalized,
         model= embedding_model
     )
     embedding = response.data[0].embedding
-    mc_client.set(key, pickle.dumps(embedding),EMBED_CACHE_TTL)
+    # mc_client.set(key, pickle.dumps(embedding),EMBED_CACHE_TTL)
     return embedding
 
 def print_results(results):
@@ -247,14 +247,14 @@ def print_results_service(results):
         
 
 def get_search_results(query: str, top_k: int, skip_k:int=0, service: bool = False):
-    from utils.cache import get_memcache   
-    mc_client = get_memcache()
-    normalized = query.strip()
-    key = f"search:{'svc' if service else 'prd'}:"+hashlib.md5(normalized.encode("utf-8")).hexdigest()+f"|{top_k}|{skip_k}"
+    # from utils.cache import get_memcache   
+    # mc_client = get_memcache()
+    # normalized = query.strip()
+    # key = f"search:{'svc' if service else 'prd'}:"+hashlib.md5(normalized.encode("utf-8")).hexdigest()+f"|{top_k}|{skip_k}"
     # print(key)
-    cached = mc_client.get(key)
-    if cached:
-        return pickle.loads(cached)
+    # cached = mc_client.get(key)
+    # if cached:
+    #     return pickle.loads(cached)
 
     vect = embed_text(query)
     vq = VectorizedQuery(
@@ -277,7 +277,7 @@ def get_search_results(query: str, top_k: int, skip_k:int=0, service: bool = Fal
         print_results_service(results) if service
         else print_results(results)
     )
-    mc_client.set(key, pickle.dumps(text),SEARCH_CACHE_TTL)
+    # mc_client.set(key, pickle.dumps(text),SEARCH_CACHE_TTL)
     return text
 
 def summarize_text(text, max_chars, user_id):
