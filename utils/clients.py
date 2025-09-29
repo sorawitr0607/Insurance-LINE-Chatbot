@@ -1,3 +1,4 @@
+## Import Library
 import os
 from dotenv import load_dotenv
 from azure.search.documents import SearchClient
@@ -8,15 +9,17 @@ from linebot.v3.messaging import Configuration, ApiClient, MessagingApi
 
 load_dotenv()
 
+## Setup Variable
 _search_client: SearchClient | None = None
 _service_search_client : SearchClient | None = None
 _openai_client:  OpenAI       | None = None
 # _gemini_client:  genai.Client | None = None
 _line_api: MessagingApi | None = None
 
+
 def get_search_client() -> SearchClient:
     global _search_client
-    if _search_client is None:            # first call only
+    if _search_client is None:            
         _search_client = SearchClient(
             endpoint = os.getenv("AZURE_SEARCH_ENDPOINT"),
             credential = AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY")),
@@ -25,12 +28,12 @@ def get_search_client() -> SearchClient:
 
 def get_service_search_client() -> SearchClient:
     global _service_search_client
-    if _service_search_client is None:            # first call only
+    if _service_search_client is None:            
         _service_search_client = SearchClient(
             endpoint = os.getenv("AZURE_SEARCH_ENDPOINT"),
             credential = AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY")),
             index_name = os.getenv("AZURE_SEARCH_INDEX_INSURANCE_SERVICE"))
-    return _service_search_client               # thread-safe
+    return _service_search_client               
 
 def get_openai() -> OpenAI:
     global _openai_client

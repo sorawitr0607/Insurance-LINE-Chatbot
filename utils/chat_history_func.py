@@ -17,7 +17,7 @@ conversations = db[mongo_table]
 def get_conversation_state(user_id, summary_max_chars=2800):
     from utils.rag_func import summarize_text
 
-    # 1) Single query for the most recent messages
+    # 1) Query Chat History
     msgs = list(conversations.find(
         {"user_id": user_id},
         sort=[("timestamp", -1)]

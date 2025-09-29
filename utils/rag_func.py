@@ -1,4 +1,6 @@
+## Import Library
 import os
+import json
 from dotenv import load_dotenv
 from azure.search.documents.models import VectorizedQuery
 from datetime import datetime
@@ -6,37 +8,46 @@ from zoneinfo import ZoneInfo
 # import hashlib
 from google.genai import types
 
+## Import Utils
 from utils.clients import get_search_client, get_service_search_client,get_openai #,get_gemini
 
-# inside the function: 
-# client_gemini = get_gemini()
+## Setup Clients
 client = get_openai()
+# client_gemini = get_gemini()
 search_client = get_search_client()
 service_search_client = get_service_search_client()
 
 load_dotenv()
 
+## Setup Model
 embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL")
-classify_model = os.getenv("OPENAI_CHAT_MODEL")
+classify_model = os.getenv("OPENAI_CLASSIFY_MODEL")
 chat_model = os.getenv("OPENAI_CHAT_MODEL")
-summary_model = os.getenv("OPENAI_CHAT_MODEL")
+summary_model = os.getenv("OPENAI_SUMMARY_MODEL")
 openai_api = os.getenv("OPENAI_API_KEY")
 # gemini_api_key = os.getenv("GEMINI_API_KEY")
 
+## Config reasoning & text threshold
+summarize_text_threshold = json.loads(os.getenv("SUMMARIZE_TEXT_PARAMS"))
+summarize_context_threshold = json.loads(os.getenv("SUMMARIZE_CONTEXT_PARAMS"))
+decide_search_path_threshold = json.loads(os.getenv("DECIDE_PATH_PARAMS"))
+generate_answer_threshold = json.loads(os.getenv("GEN_ANS_PARAMS"))
 
-DEFAULT_SAFETY_SETTINGS = {
-    types.HarmCategory.HARM_CATEGORY_HARASSMENT: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-}
 
-safety_settings_list = [
-    types.SafetySetting(category=category, threshold=threshold)
-    for category, threshold in DEFAULT_SAFETY_SETTINGS.items()
-]
+# ## Config Safety Answer
+# DEFAULT_SAFETY_SETTINGS = {
+#     types.HarmCategory.HARM_CATEGORY_HARASSMENT: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+#     types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+#     types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+#     types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: types.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+# }
 
-# Configuration for Gemini API calls
+# safety_settings_list = [
+#     types.SafetySetting(category=category, threshold=threshold)
+#     for category, threshold in DEFAULT_SAFETY_SETTINGS.items()
+# ]
+
+## Config Classify Prompt
 classify_instruc = """You are a precise text classification model. Your primary task is to assign a single, most appropriate label to the user's query. **Crucially, you MUST consider the 'Conversation History' to understand the context.**
 
 **TASK:**
@@ -79,7 +90,7 @@ Analyze the 'User Query' in the context of the 'Conversation History' and select
     * Examples: "Show me other similar products.", "Are there any other services related to this?", "What else do you have?"
 
 5.  **OFF-TOPIC:**
-    * If the query is a generic greeting without specific insurance intent after an initial greeting, it might be OFF-TOPIC unless it's clearly continuing a prior insurance discussion.
+    * If the query is a generic greeting e.g. "Hi","Hello", "Hey" etc. without specific insurance intent after an initial greeting, it might be OFF-TOPIC unless it's clearly continuing a prior insurance discussion.
     * The query is not related to insurance products or services offered by Thai Group Holdings (SE Life and INSURE).
     * The query is nonsensical, abusive, or does not fit any of the above categories.
 
@@ -89,12 +100,8 @@ Return ONLY the selected label. Do not add any explanations, apologies, or conve
 Example Output:
 INSURANCE_PRODUCT
 """
-generation_config_classify = types.GenerateContentConfig(
-    temperature=0.3,
-    #max_output_tokens=50, # Slightly more buffer for classification labels
-    system_instruction=classify_instruc
-)
 
+## Config Answer Prompt
 answer_instruc = """You are 'Subsin', a helpful, professional, and male AI insurance assistant for Thai Group Holdings Public Company Limited. You represent two business units:
 1.  **ประกันชีวิต SE Life (อาคเนย์ประกันชีวิต)**
 2.  **ประกันภัย INSURE (อินทรประกันภัย)**
@@ -146,14 +153,33 @@ answer_instruc = """You are 'Subsin', a helpful, professional, and male AI insur
 
 Now, please answer the 'User Question'.
 """
-generation_config_answer = types.GenerateContentConfig(
-    temperature=0.5,
-    #max_output_tokens=1000,
-    system_instruction=answer_instruc,
-    safety_settings=safety_settings_list
-)
 
+summarize_instruc = (
+        "You are an expert conversation summarizer. Your task is to condense the provided 'Raw Conversation Log' "
+        "into a clear, concise, and chronologically accurate summary. This summary will replace the raw log and "
+        "will be used as the sole context for future interactions with an AI assistant. "
+        "Therefore, it is crucial that the summary preserves all key information, "
+        "including specific questions asked by the user, important details or entities mentioned (like product names, "
+        "dates, amounts), and the core responses or information provided by the assistant. "
+        "Maintain the order of events as they occurred. Ensure the summary reads like a continuous narrative of the conversation so far. "
+        "Focus on facts and essential context, omitting pleasantries or redundant phrases if they don't add informational value. "
+        "The output should be a single block of text. Do not exceed 1000 tokens."
+    )
 
+# generation_config_classify = types.GenerateContentConfig(
+#     # temperature=0.3,
+#     #max_output_tokens=50,
+#     system_instruction=classify_instruc
+# )
+
+# generation_config_answer = types.GenerateContentConfig(
+#     # temperature=0.5,
+#     #max_output_tokens=1000,
+#     system_instruction=answer_instruc,
+#     # safety_settings=safety_settings_list
+# )
+
+## Embedding
 def embed_text(text: str):
 
     normalized = text.replace("\n", " ").strip()
@@ -167,6 +193,7 @@ def embed_text(text: str):
     embedding = response.data[0].embedding
     return embedding
 
+## Result
 def print_results(results):
     answer = []
     for result in results:
@@ -179,6 +206,7 @@ def print_results(results):
         answer+=[f"URL: {result['Product_URL']}\n"]
     return answer
 
+## Result
 def print_results_service(results):
     answer = []
     for result in results:
@@ -188,7 +216,7 @@ def print_results_service(results):
         answer+=[f"URL: {result['Service_URL']}\n"]
     return answer
         
-
+## Searching
 def get_search_results(query: str, top_k: int, skip_k:int=0, service: bool = False):
 
     vect = embed_text(query)
@@ -212,25 +240,15 @@ def get_search_results(query: str, top_k: int, skip_k:int=0, service: bool = Fal
         print_results_service(results) if service
         else print_results(results)
     )
-    # mc_client.set(key, pickle.dumps(text),SEARCH_CACHE_TTL)
     return text
 
+## Summarize Context
 def summarize_text(text, max_chars, user_id):
 
     if len(text) <= max_chars:
         return text
     
-    system_prompt = (
-        "You are an expert conversation summarizer. Your task is to condense the provided 'Raw Conversation Log' "
-        "into a clear, concise, and chronologically accurate summary. This summary will replace the raw log and "
-        "will be used as the sole context for future interactions with an AI assistant. "
-        "Therefore, it is crucial that the summary preserves all key information, "
-        "including specific questions asked by the user, important details or entities mentioned (like product names, "
-        "dates, amounts), and the core responses or information provided by the assistant. "
-        "Maintain the order of events as they occurred. Ensure the summary reads like a continuous narrative of the conversation so far. "
-        "Focus on facts and essential context, omitting pleasantries or redundant phrases if they don't add informational value. "
-        "The output should be a single block of text. Do not exceed 1000 tokens."
-    )
+    system_prompt = summarize_instruc
     
     user_content_for_summarizer = f"Raw Conversation Log:\n{text}"
     response = client.chat.completions.create(
@@ -239,8 +257,11 @@ def summarize_text(text, max_chars, user_id):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content_for_summarizer}
         ],
-        temperature=0.3,
-        max_tokens=1000
+        reasoning_effort = summarize_text_threshold['reasoning_effort'],
+        verbosity = summarize_text_threshold['verbosity'],
+        # temperature=0.3,
+        # max_tokens=1000
+
     )
     summary = response.choices[0].message.content.strip()
     timestamp = datetime.now(ZoneInfo("Asia/Bangkok"))
@@ -252,17 +273,7 @@ def summarize_text(text, max_chars, user_id):
 
 def summarize_context(new_question,chat_history):
 
-    system_prompt = (
-        "You are an expert summarizer for a vector-based retrieval system. Your goal is "
-        "to produce a concise, context-rich summary focused on the user's latest question. "
-        "Include only details from the conversation history that are directly relevant "
-        "to the new question. Omit irrelevant or off-topic content, and do not include URLs."
-        "\n\n"
-        "Ensure you preserve exact wording for any product names or special terms (including "
-        "those in asterisks, e.g., *ProductName*). Keep it short but detailed enough that "
-        "someone reading this summary can address the user's latest question accurately."
-        "Respond concisely and within 180 tokens."
-    )
+    system_prompt = summarize_instruc
     text = f"""
     Chat History: {chat_history}
     Latest User Question: {new_question}
@@ -282,8 +293,8 @@ def summarize_context(new_question,chat_history):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": text}
         ],
-        temperature=0.2,
-        max_tokens=200
+        reasoning_effort = summarize_context_threshold['reasoning_effort'],
+        verbosity = summarize_context_threshold['verbosity'],
     )
     summary = response.choices[0].message.content.strip()
     # print(summary)
@@ -293,18 +304,18 @@ def summarize_context(new_question,chat_history):
 def decide_search_path(user_query, chat_history=None):
 
     prompt_content = f"""
-User Query: {user_query}
-Conversation History: {chat_history if chat_history else 'None'}
-"""
-
+                User Query: {user_query}
+                Conversation History: {chat_history if chat_history else 'None'}
+                """
 
     response = client.chat.completions.create(
-        model=classify_model,   # or your desired mini/4.1 model
+        model=classify_model,  
         messages=[
             {"role": "system", "content": classify_instruc},
             {"role": "user", "content": prompt_content}
         ],
-        temperature=0.3
+        reasoning_effort = decide_search_path_threshold['reasoning_effort'],
+        verbosity = decide_search_path_threshold['verbosity'],
     )
     raw_response = response.choices[0].message.content.strip()
     path_decision = raw_response.strip().upper()
@@ -323,12 +334,13 @@ def generate_answer(query, context, chat_history=None):
     full_prompt_for_chatgpt = "\n".join(prompt_parts)
     try:
         response = client.chat.completions.create(
-            model=chat_model,  # or your desired mini/4.1 model
+            model=chat_model, 
             messages=[
                 {"role": "system", "content": answer_instruc},
                 {"role": "user", "content": full_prompt_for_chatgpt}
             ],
-            temperature=0.5
+            reasoning_effort = generate_answer_threshold['reasoning_effort'] ,
+            verbosity = generate_answer_threshold['verbosity'] ,
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
